@@ -54,6 +54,14 @@ def main(argv: list[str] | None = None) -> int:
         prog="doc-guard",
         description="문서가 고객사 템플릿을 따르는지 검사한다.",
     )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="검사하지 않고 외부 흔적을 걷어낸 새 파일을 만든다. 원본은 덮지 않는다",
+    )
+    parser.add_argument(
+        "--out-dir", type=Path, default=None, help="--clean 의 결과를 둘 곳"
+    )
     parser.add_argument("paths", nargs="*", type=Path, help="검사할 문서")
     parser.add_argument(
         "--rules", type=Path, help="규칙 파일 하나 또는 규칙 폴더"
@@ -71,6 +79,9 @@ def main(argv: list[str] | None = None) -> int:
         help="관할 glob 을 맞춰 볼 기준 경로. 기본은 규칙 폴더의 한 단계 위(회사 폴더)",
     )
     args = parser.parse_args(argv)
+
+    if args.clean:
+        return _clean(args.paths, args.out_dir)
 
     if args.auto == bool(args.rules):
         parser.error("--rules 와 --auto 중 정확히 하나를 주십시오")
@@ -93,6 +104,24 @@ def main(argv: list[str] | None = None) -> int:
     json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return EXIT_VIOLATION if report["summary"]["violations"] else EXIT_PASS
+
+
+def _clean(paths: list[Path], out_dir: Path | None) -> int:
+    """외부 흔적을 걷어낸 새 파일을 만든다. 사람이 직접 부르는 길이다."""
+    from checker.cleaner import clean, default_output
+
+    if not paths:
+        print("걷어낼 파일을 지정하십시오.", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+
+    for path in paths:
+        target = (out_dir / path.name) if out_dir else default_output(path)
+        try:
+            print(clean(path, target).summary())
+        except (ValueError, OSError) as exc:
+            print(f"{path.name}: {exc}", file=sys.stderr)
+            return EXIT_CONFIG_ERROR
+    return EXIT_PASS
 
 
 def _check_with_rules(rules: Path, root_arg: Path | None, paths: list[Path]) -> dict:
