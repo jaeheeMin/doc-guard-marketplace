@@ -1,0 +1,47 @@
+name: checker
+
+# 검사 엔진이 플러그인 밖에 있는 이유가 팀원 PC(Windows)와 Actions(Linux) 두 곳에서 같은
+# 엔진이 돌아야 하기 때문이므로, 양쪽에서 같은 결과가 나오는지가 곧 이 저장소의 전제다.
+# 한쪽에서만 돌리면 경로 구분자, 파일명 대소문자 구분, 줄바꿈, 한글 인코딩 차이를 놓친다.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 의존성 설치
+        run: uv sync --all-extras --dev
+
+      - name: 테스트
+        run: uv run pytest -q
+
+      - name: CLI 계약 확인 (통과는 0)
+        shell: bash
+        run: |
+          uv run python checker/tests/make_fixtures.py
+          F=checker/tests/fixtures/client-docs/sample
+          uv run doc-guard --rules "$F/rules" "$F/docs/제안서/20260921_로그인_제안서.md"
+
+      - name: CLI 계약 확인 (위반은 1)
+        shell: bash
+        run: |
+          F=checker/tests/fixtures/client-docs/sample
+          set +e
+          uv run doc-guard --rules "$F/rules" "$F/docs/제안서/제안서최종.md" > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "종료코드가 1이 아니라 $code 다"; exit 1; }
