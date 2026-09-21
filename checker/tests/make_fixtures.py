@@ -9,6 +9,7 @@ docx·xlsx·pptx 는 바이너리라 커밋하면 리뷰에서 diff 를 볼 수 
 """
 from __future__ import annotations
 
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -203,6 +204,100 @@ def build_pptx() -> None:
     deck(d / "한장만.pptx", [0])                 # 경계: 한 장이지만 템플릿 안쪽
 
 
+CORE_CLEAN = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<cp:coreProperties'
+    ' xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"'
+    ' xmlns:dc="http://purl.org/dc/elements/1.1/">'
+    "<dc:creator></dc:creator><cp:lastModifiedBy></cp:lastModifiedBy>"
+    "</cp:coreProperties>"
+)
+
+# 실제 파일에서 발견한 모양 그대로다. 이름공간 속성이 붙은 형태로 둔다 — 속성이 붙으면
+# 못 잡는 버그가 실제로 있었기 때문에, 픽스처가 그 경우를 지켜야 한다.
+CORE_DIRTY = CORE_CLEAN.replace(
+    "<dc:creator></dc:creator>", "<dc:creator>가짜작성자</dc:creator>"
+).replace(
+    "<cp:lastModifiedBy></cp:lastModifiedBy>",
+    "<cp:lastModifiedBy>가짜수정자/ 가짜팀</cp:lastModifiedBy>",
+)
+
+CUSTOM_XML = (
+    '<?xml version="1.0"?><root><UserInfo><DisplayName>'
+    "가짜사람/ 가짜거래처 협력사</DisplayName></UserInfo></root>"
+)
+
+COMMENTS_XML = (
+    '<?xml version="1.0"?>'
+    '<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    "<authors><author>가짜주석작성자</author></authors><commentList/></comments>"
+)
+
+# 복붙으로 딸려온 명명 스타일. 이름 자체가 거래처와 사업명인 것이 특징이다.
+# xfId 는 모두 0(표준)을 가리킨다. 실제 파일도 이름만 다르고 대부분 같은 서식을 가리킨다.
+# 없는 xfId 를 가리키면 파일 자체가 깨져 픽스처가 현실과 달라진다.
+JUNK_STYLES = "".join(
+    '<cellStyle name="_(가짜상사{i}) 견적_v{i}" xfId="0"/>'.format(i=i) for i in range(60)
+)
+
+
+def _rebuild(path: Path, replace: dict, add: dict) -> None:
+    """zip 항목을 바꿔 다시 쓴다. 손대지 않은 항목은 바이트 그대로 옮긴다."""
+    import zipfile
+
+    with zipfile.ZipFile(path) as zin:
+        items = [(i, zin.read(i.filename)) for i in zin.infolist()]
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item, data in items:
+            if item.filename in replace:
+                data = replace[item.filename].encode("utf-8")
+            zout.writestr(item, data)
+        for name, text in add.items():
+            zout.writestr(name, text.encode("utf-8"))
+
+
+def _with_junk_styles(path: Path) -> str:
+    import zipfile
+
+    with zipfile.ZipFile(path) as zf:
+        text = zf.read("xl/styles.xml").decode("utf-8")
+    if "<cellStyles" not in text:
+        return text
+    text = re.sub(
+        r'<cellStyles count="([0-9]+)">',
+        lambda m: '<cellStyles count="%d">' % (int(m.group(1)) + 60),
+        text,
+        count=1,
+    )
+    return text.replace("</cellStyles>", JUNK_STYLES + "</cellStyles>", 1)
+
+
+def build_traces() -> None:
+    """외부 흔적이 심긴 파일과 깨끗한 파일을 짝으로 만든다.
+
+    실제 파일에서 발견한 그대로 심는다 — 복붙으로 쌓인 명명 스타일, SharePoint 가 남긴
+    사용자 정보, 문서 속성의 실명, 주석 작성자.
+    """
+    import openpyxl
+
+    d = ROOT / "docs" / "흔적"
+    d.mkdir(parents=True, exist_ok=True)
+
+    clean_path, dirty_path = d / "깨끗한.xlsx", d / "흔적있는.xlsx"
+    for path in (clean_path, dirty_path):
+        wb = openpyxl.Workbook()
+        wb.active["A1"] = "내용"
+        wb.save(path)
+
+    # openpyxl 이 작성자에 자기 이름을 적어 넣으므로 깨끗한 쪽도 비워야 한다.
+    _rebuild(clean_path, {"docProps/core.xml": CORE_CLEAN}, {})
+    _rebuild(
+        dirty_path,
+        {"docProps/core.xml": CORE_DIRTY, "xl/styles.xml": _with_junk_styles(dirty_path)},
+        {"customXml/item1.xml": CUSTOM_XML, "xl/comments1.xml": COMMENTS_XML},
+    )
+
+
 def main() -> None:
     # Windows 콘솔 기본 인코딩으로는 한글을 출력할 수 없다.
     reconfigure = getattr(sys.stdout, "reconfigure", None)
@@ -213,6 +308,7 @@ def main() -> None:
     build_md()
     build_xlsx()
     build_pptx()
+    build_traces()
     print(f"픽스처를 만들었다: {ROOT}")
 
 
