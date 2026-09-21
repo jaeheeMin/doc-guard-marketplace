@@ -158,3 +158,17 @@ def test_깨진_YAML_은_설정오류(capsys, tmp_path):
     rules = _rules(tmp_path, "템플릿: [\n관할: 'docs/**'\n")
     code, out = invoke(capsys, rules)
     assert code == EXIT_CONFIG_ERROR
+
+
+def test_한글_출력이_인코딩으로_죽지_않는다(capsys, rules_dir, sample):
+    """Windows 콘솔 기본 인코딩(cp949/cp1252)으로는 한글을 낼 수 없다.
+
+    이 도구의 출력은 거의 항상 한글이고 팀원 PC 가 정확히 그 환경이므로, 출력 인코딩을
+    못 박지 않으면 위반을 보고하려는 순간 CLI 자체가 죽는다. CI 의 windows-latest 가
+    실제로 이 버그를 잡았다.
+    """
+    _, out = invoke(capsys, rules_dir, sample / "docs/제안서/제안서최종.md")
+    message = out["files"][0]["violations"][0]["message"]
+    assert "파일 이름" in message
+    # ensure_ascii=False 로 내보내므로 한글이 escape 되지 않고 그대로 실려야 한다
+    message.encode("utf-8")

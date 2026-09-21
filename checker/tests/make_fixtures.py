@@ -10,6 +10,7 @@ docx·xlsx·pptx 는 바이너리라 커밋하면 리뷰에서 diff 를 볼 수 
 from __future__ import annotations
 
 import shutil
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent / "fixtures" / "client-docs" / "sample"
@@ -203,6 +204,10 @@ def build_pptx() -> None:
 
 
 def main() -> None:
+    # Windows 콘솔 기본 인코딩으로는 한글을 출력할 수 없다.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
     if ROOT.exists():
         shutil.rmtree(ROOT)
     build_md()

@@ -34,7 +34,21 @@ def _relative(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
+def _force_utf8() -> None:
+    """출력을 UTF-8 로 못 박는다.
+
+    이것이 없으면 Windows 에서 CLI 가 죽는다. 콘솔 기본 인코딩이 cp949 나 cp1252 라서
+    한글이 담긴 위반 메시지를 JSON 으로 내보내는 순간 UnicodeEncodeError 가 난다.
+    팀원 PC 가 정확히 그 환경이고, 이 도구의 출력은 거의 항상 한글이다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8()
     parser = argparse.ArgumentParser(
         prog="doc-guard",
         description="문서가 고객사 템플릿을 따르는지 검사한다.",
