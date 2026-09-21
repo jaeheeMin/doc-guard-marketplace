@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BRANCH_PATTERN='^(feat|fix|docs|refactor|chore|test)/[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+
+# rebase 나 merge 가 진행 중일 때는 이미 검증된 커밋을 다시 적용하는 것이므로
+# 검사를 건너뛴다. 새 작업이 이 경로로 들어올 수는 없다.
+git_dir="$(git rev-parse --git-dir)"
+if [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ] || [ -f "$git_dir/MERGE_HEAD" ]; then
+  exit 0
+fi
+
+# 커밋이 하나도 없는 저장소에서는 rev-parse 가 실패하므로 symbolic-ref 를 쓴다.
+# 어느 브랜치에도 속하지 않은 상태에서는 빈 문자열을 돌려준다.
+branch="$(git symbolic-ref --short -q HEAD || true)"
+
+if [ -z "$branch" ]; then
+  cat >&2 <<'MSG'
+
+  [거부] 어느 브랜치에도 속하지 않은 상태입니다.
+
+  아래로 main 에 돌아간 뒤 /start 로 다시 시작하십시오.
+
+      git switch main
+
+MSG
+  exit 1
+fi
+
+if [ "$branch" = "main" ]; then
+  cat >&2 <<'MSG'
+
+  [거부] main 브랜치에는 직접 커밋할 수 없습니다.
+
+  Claude Code 를 쓰고 있다면 /start 를 실행하십시오. 이슈를 만들고
+  규칙에 맞는 브랜치를 자동으로 만들어 줍니다.
+
+  터미널에서 직접 하려면 아래처럼 브랜치를 만드십시오.
+
+      git switch -c feat/12-작업요약
+
+  12 자리에는 GitHub 이슈 번호를 넣습니다.
+
+MSG
+  exit 1
+fi
+
+if ! printf '%s' "$branch" | grep -Eq "$BRANCH_PATTERN"; then
+  cat >&2 <<MSG
+
+  [거부] 브랜치 이름이 규칙에 맞지 않습니다: $branch
+
+  형식은 다음과 같습니다.
+
+      {타입}/{이슈번호}-{영문요약}
+
+  예시: feat/12-add-onboarding-doc
+        fix/31-broken-link
+        docs/7-rules-index
+
+  허용하는 타입: feat, fix, docs, refactor, chore, test
+  요약은 영문 소문자와 숫자와 붙임표만 씁니다.
+
+  지금 브랜치의 이름만 바꾸려면 아래를 실행하십시오.
+
+      git branch -m feat/이슈번호-작업요약
+
+MSG
+  exit 1
+fi
+
+exit 0

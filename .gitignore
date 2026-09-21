@@ -1,0 +1,20 @@
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# 검사 대상 문서의 임시 산출물
+*.tmp
+~$*

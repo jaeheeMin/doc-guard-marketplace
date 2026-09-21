@@ -1,0 +1,19 @@
+{
+  "name": "doc-guard-marketplace",
+  "owner": {
+    "name": "jaeheeMin"
+  },
+  "metadata": {
+    "description": "문서가 정해진 템플릿을 따르는지 검사하고 위반 시 쓸 템플릿을 안내하는 doc-guard 플러그인 마켓플레이스",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "doc-guard",
+      "source": "./plugins/doc-guard",
+      "description": "문서를 저장하기 전에 고객사별 템플릿 규칙과 대조해 검사하고, 위반하면 위반 목록과 쓸 템플릿 경로를 알려준다.",
+      "category": "productivity",
+      "tags": ["docs", "template", "validation", "compliance"]
+    }
+  ]
+}
