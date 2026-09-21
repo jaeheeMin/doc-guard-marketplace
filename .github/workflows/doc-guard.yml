@@ -1,0 +1,119 @@
+# 문서 저장소가 가져다 쓰는 재사용 워크플로.
+#
+# 이 저장소가 아니라 client-docs 같은 문서 저장소에서 불린다. 바뀐 문서만 골라 검사하고,
+# 위반이면 job 을 실패시키고 PR 에 결과를 남긴다.
+#
+# 문서 저장소 쪽에서는 이렇게 부른다.
+#
+#   jobs:
+#     doc-guard:
+#       uses: jaeheeMin/doc-guard-marketplace/.github/workflows/doc-guard.yml@main
+#       permissions:
+#         contents: read
+#         pull-requests: write
+
+name: doc-guard
+
+on:
+  workflow_call:
+    inputs:
+      engine-ref:
+        description: 검사 엔진을 가져올 doc-guard-marketplace 의 ref
+        type: string
+        default: main
+      comment:
+        description: 결과를 PR 코멘트로 남길지
+        type: boolean
+        default: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 문서 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          # 바뀐 파일을 알아내려면 비교 대상 커밋이 있어야 한다.
+          fetch-depth: 0
+
+      - name: 검사 엔진 가져오기
+        uses: actions/checkout@v4
+        with:
+          repository: jaeheeMin/doc-guard-marketplace
+          ref: ${{ inputs.engine-ref }}
+          path: .doc-guard-engine
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 바뀐 문서 찾기
+        id: changed
+        shell: bash
+        run: |
+          # PR 이면 기준 브랜치와 비교하고, push 면 직전 커밋과 비교한다.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+            git fetch origin "${{ github.base_ref }}" --depth=1 -q
+          else
+            base="${{ github.event.before }}"
+          fi
+          # 지워진 파일은 검사할 수 없으므로 뺀다(--diff-filter=d).
+          git diff --name-only --diff-filter=d "$base" HEAD > changed.txt || git ls-files > changed.txt
+          echo "바뀐 파일:"; cat changed.txt
+          if [ ! -s changed.txt ]; then echo "none=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: 검사
+        if: steps.changed.outputs.none != 'true'
+        id: check
+        shell: bash
+        run: |
+          set +e
+          uv run --project .doc-guard-engine python .doc-guard-engine/scripts/check_changed.py changed.txt > report.json 2> error.txt
+          code=$?
+          set -e
+          echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+          cat error.txt >&2 || true
+          exit 0
+
+      - name: 결과 정리
+        if: steps.changed.outputs.none != 'true'
+        id: render
+        shell: bash
+        run: |
+          uv run --project .doc-guard-engine python .doc-guard-engine/scripts/render_report.py \
+            report.json "${{ steps.check.outputs.exit-code }}" > comment.md
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          cat comment.md
+
+      - name: PR 에 남기기
+        if: inputs.comment && github.event_name == 'pull_request' && steps.changed.outputs.none != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('comment.md', 'utf8');
+            const marker = '<!-- doc-guard -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const mine = existing.data.find(c => c.body.includes(marker));
+            // 새 코멘트를 쌓지 않고 하나를 고쳐 쓴다. PR 하나에 코멘트가 줄줄이
+            // 달리면 무엇이 최신인지 알기 어렵다.
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: 판정
+        if: steps.changed.outputs.none != 'true'
+        shell: bash
+        run: |
+          code="${{ steps.check.outputs.exit-code }}"
+          case "$code" in
+            0) echo "통과" ;;
+            1) echo "::error::문서가 템플릿을 따르지 않습니다. PR 코멘트를 보십시오."; exit 1 ;;
+            2) echo "::error::규칙 파일에 문제가 있어 검사할 수 없습니다. 규칙 담당자에게 알리십시오."; exit 1 ;;
+            *) echo "::error::검사기가 예상치 못한 코드 $code 로 끝났습니다."; exit 1 ;;
+          esac
