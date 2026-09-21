@@ -57,15 +57,31 @@ def _build(name: str, body: dict, source: Path) -> DocType:
     template = body.get("템플릿") or body.get("template")
     if not jurisdiction:
         raise ConfigError(f"{where}: '관할' 이 없다")
-    if not template:
-        raise ConfigError(f"{where}: '템플릿' 이 없다")
 
-    template_path = (source.parent / str(template)).resolve()
-    if not template_path.is_file():
-        raise ConfigError(f"{where}: 템플릿을 찾을 수 없다 — {template}")
+    entries = _as_list(body.get("규칙") or body.get("rules"), where)
+
+    # 템플릿은 그것을 읽는 규칙 종류가 있을 때만 필요하다. 기대값을 템플릿에서 뽑는
+    # 규칙(필수 절, 표 헤더 등)은 템플릿이 있어야 하지만, 외부 흔적 검사처럼 기대값이
+    # "깨끗한 상태" 라는 보편적 기준에서 나오는 규칙은 대조할 템플릿이 없어도 성립한다.
+    # 템플릿 자체를 검사하려면 이 구분이 필요하다. 템플릿의 템플릿은 없기 때문이다.
+    needs_template = any(
+        rule_registry.get_prepare(e.get("종류") or e.get("kind")) is not None
+        for e in entries
+        if isinstance(e, dict) and (e.get("종류") or e.get("kind"))
+    )
+
+    template_path = None
+    if template:
+        template_path = (source.parent / str(template)).resolve()
+        if not template_path.is_file():
+            raise ConfigError(f"{where}: 템플릿을 찾을 수 없다 — {template}")
+    elif needs_template:
+        raise ConfigError(
+            f"{where}: 이 유형의 규칙은 템플릿에서 기대값을 읽으므로 '템플릿' 이 있어야 한다"
+        )
 
     built = []
-    for i, entry in enumerate(_as_list(body.get("규칙") or body.get("rules"), where)):
+    for i, entry in enumerate(entries):
         if not isinstance(entry, dict):
             raise ConfigError(f"{where}: {i + 1}번째 규칙이 사전이 아니다")
         kind = entry.get("종류") or entry.get("kind")
@@ -85,12 +101,14 @@ def _build(name: str, body: dict, source: Path) -> DocType:
             except Exception as exc:
                 raise ConfigError(f"{where}: {kind} 규칙의 기대값을 템플릿에서 뽑지 못했다 — {exc}") from exc
 
-        built.append(Rule(kind=kind, doc_type=name, template=str(template), params=params))
+        built.append(
+            Rule(kind=kind, doc_type=name, template=str(template or ""), params=params)
+        )
 
     return DocType(
         name=str(name),
         jurisdiction=str(jurisdiction),
-        template=str(template),
+        template=str(template) if template else "",
         rules=tuple(built),
         source=str(source),
     )
