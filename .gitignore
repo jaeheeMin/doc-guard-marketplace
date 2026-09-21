@@ -18,3 +18,7 @@ venv/
 # 검사 대상 문서의 임시 산출물
 *.tmp
 ~$*
+
+# 픽스처는 커밋하지 않는다. docx·xlsx·pptx 는 바이너리라 리뷰에서 diff 를 볼 수 없어
+# 의도한 위반을 담고 있는지 확인할 수 없다. checker/tests/make_fixtures.py 로 만든다.
+checker/tests/fixtures/
