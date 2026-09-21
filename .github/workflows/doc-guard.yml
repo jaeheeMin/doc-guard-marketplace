@@ -59,7 +59,11 @@ jobs:
             base="${{ github.event.before }}"
           fi
           # 지워진 파일은 검사할 수 없으므로 뺀다(--diff-filter=d).
-          git diff --name-only --diff-filter=d "$base" HEAD > changed.txt || git ls-files > changed.txt
+          #
+          # core.quotepath=false 가 없으면 git 이 비ASCII 경로를 따옴표와 8진수로 감싸
+          # 내놓는다. 이 저장소의 문서는 파일명도 폴더명도 한글이라 거의 모든 경로가
+          # 여기 걸리고, 검사기는 존재하지 않는 경로를 받게 된다.
+          git -c core.quotepath=false diff --name-only --diff-filter=d "$base" HEAD > changed.txt || git -c core.quotepath=false ls-files > changed.txt
           echo "바뀐 파일:"; cat changed.txt
           if [ ! -s changed.txt ]; then echo "none=true" >> "$GITHUB_OUTPUT"; fi
 
