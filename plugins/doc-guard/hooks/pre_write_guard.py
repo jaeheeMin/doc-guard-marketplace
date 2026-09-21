@@ -23,6 +23,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+# 회사 폴더를 찾는 일은 GitHub Actions 쪽도 똑같이 한다. 한 벌만 두고 양쪽이 쓴다.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from checker.locate import find_company_root  # noqa: E402
+
 # 이 훅이 내용을 재조립할 수 있는 형식. docx·xlsx·pptx 는 바이너리라 Write/Edit 도구로
 # 의미 있게 만들어지지 않으므로 손대지 않는다. 그쪽은 GitHub Actions 검사가 잡는다.
 TEXT_SUFFIXES = {".md", ".markdown", ".txt", ".yaml", ".yml", ".json", ".csv"}
@@ -50,21 +54,6 @@ def deny(reason: str) -> None:
     json.dump(payload, sys.stdout, ensure_ascii=False)
     sys.stdout.write("\n")
     sys.exit(0)
-
-
-def find_company_root(path: Path) -> Path | None:
-    """문서가 속한 회사 폴더를 찾는다.
-
-    회사 폴더는 `templates/` 와 `rules/` 를 함께 가진 디렉터리다. 문서에서 위로
-    올라가며 찾는다. 찾지 못하면 doc-guard 의 소관이 아니므로 아무 말도 하지 않는다.
-
-    이 판단에 엔진이 필요 없다는 점이 중요하다. 대부분의 쓰기는 여기서 끝나므로,
-    파일을 고칠 때마다 검사기를 띄우지 않는다.
-    """
-    for parent in [path.parent, *path.parent.parents]:
-        if (parent / "templates").is_dir() and (parent / "rules").is_dir():
-            return parent
-    return None
 
 
 def proposed_content(tool: str, tool_input: dict, path: Path) -> str | None:
