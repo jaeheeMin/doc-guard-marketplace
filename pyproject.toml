@@ -1,0 +1,27 @@
+[project]
+name = "doc-guard-checker"
+version = "0.1.0"
+description = "문서가 고객사 템플릿을 따르는지 검사하는 엔진"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "python-pptx>=1.0",
+]
+
+[project.scripts]
+doc-guard = "checker.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["checker"]
+
+[tool.pytest.ini_options]
+testpaths = ["checker/tests"]
