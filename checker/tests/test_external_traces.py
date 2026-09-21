@@ -132,3 +132,48 @@ def test_엔진은_이_규칙도_모른다():
     from checker import engine
 
     assert "external_traces" not in inspect.getsource(engine)
+
+
+# --- 템플릿 없는 유형 ------------------------------------------------------
+
+def _rules_dir(tmp_path: Path, body: str) -> Path:
+    d = tmp_path / "회사" / "rules"
+    d.mkdir(parents=True)
+    (d / "규칙.yaml").write_text(body, encoding="utf-8")
+    return d
+
+
+def test_템플릿을_읽지_않는_규칙만_있으면_템플릿이_없어도_된다(tmp_path):
+    """템플릿 자체를 검사하려면 이 구분이 필요하다. 템플릿의 템플릿은 없다.
+
+    오염된 템플릿이 모든 산출물을 오염시키므로 거기가 발원지다.
+    """
+    from checker.loader import load
+
+    rules = _rules_dir(tmp_path, "관할: 'templates/**'\n규칙:\n  - 종류: external_traces\n")
+    types = load(rules)
+    assert types[0].template == ""
+    assert [r.kind for r in types[0].rules] == ["external_traces"]
+
+
+def test_템플릿을_읽는_규칙이_있으면_템플릿을_요구한다(tmp_path):
+    from checker.loader import load
+    from checker.model import ConfigError
+
+    rules = _rules_dir(tmp_path, "관할: 'docs/**'\n규칙:\n  - 종류: required_sections\n")
+    with pytest.raises(ConfigError, match="템플릿"):
+        load(rules)
+
+
+def test_템플릿_없는_유형의_리포트는_템플릿이_null_이다(tmp_path):
+    from checker.engine import check
+    from checker.loader import load
+
+    rules = _rules_dir(tmp_path, "관할: 'templates/**'\n규칙:\n  - 종류: external_traces\n")
+    doc = tmp_path / "회사" / "templates" / "무언가.md"
+    doc.parent.mkdir(parents=True)
+    doc.write_text("# 제목\n", encoding="utf-8")
+
+    report = check([(doc, "templates/무언가.md")], load(rules))
+    assert report["files"][0]["template"] is None
+    assert report["files"][0]["status"] == "pass"

@@ -72,8 +72,9 @@ def check_file(path: Path, relative: str, types: list[DocType]) -> dict:
         "file": relative,
         "type": doc_type.name,
         # 위반이 없어도 유형과 템플릿을 싣는다. 문서를 올리는 사람은 위반을 알기 전에
-        # "뭘 보고 쓰지" 부터 궁금하기 때문이다.
-        "template": doc_type.template,
+        # "뭘 보고 쓰지" 부터 궁금하기 때문이다. 템플릿을 쓰지 않는 유형도 있으므로
+        # (템플릿 자체를 검사하는 경우) 없으면 null 이다.
+        "template": doc_type.template or None,
         "status": VIOLATION if violations else PASS,
         "violations": [v.to_json() for v in violations],
     }
