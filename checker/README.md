@@ -43,8 +43,18 @@ client-docs/
 ```
 
 ```
-doc-guard check <회사>/docs/*.md --rules <회사>/rules/
+doc-guard --rules <회사>/rules/ <회사>/docs/*.md
 ```
+
+회사가 여럿이면 `--auto` 로 파일마다 회사 폴더를 스스로 찾게 한다. 한 PR 이 두 회사
+폴더를 건드릴 수 있으므로 GitHub Actions 쪽이 이것을 쓴다.
+
+```
+doc-guard --auto <바뀐 파일들>
+```
+
+회사 폴더는 `templates/` 와 `rules/` 를 함께 가진 디렉터리다. 이 판단은 `locate.py` 에
+한 벌만 두고 플러그인 훅과 Actions 가 함께 쓴다. `engine.py` 는 폴더 규약을 모른다.
 
 ## 설계 원칙
 
@@ -109,6 +119,21 @@ stdout 에 JSON 리포트를 낸다. 플러그인 훅 출력과 PR 코멘트가 
 
 전부 관할 밖인 경우를 0 으로 묶는 이유는 README 만 고친 PR 이 CI 를 깨뜨리면 안 되기
 때문이다. 그 사실은 종료코드가 아니라 리포트의 `scoped` 가 싣는다. `3` 이상은 비워 둔다.
+
+## 두 껍데기
+
+엔진은 판정만 한다. 막는 것은 껍데기의 일이고 둘이 있다.
+
+| 껍데기 | 언제 | 무엇을 막나 | 어디에 |
+|---|---|---|---|
+| 플러그인 훅 | 팀원 PC 에서 문서를 저장할 때 | 텍스트 문서 | `plugins/doc-guard/hooks/` |
+| GitHub Actions | 커밋해서 올릴 때 | 모든 형식 | `.github/workflows/doc-guard.yml` |
+
+둘이 하는 일은 같다 — 회사 폴더를 찾고, 엔진을 부르고, 종료코드로 분기한다. 끝만 다르다.
+훅은 저장을 막고 Actions 는 job 을 실패시키며 PR 에 결과를 남긴다.
+
+오피스 문서(docx·xlsx·pptx)는 훅으로 잡을 수 없다. 팀원이 엑셀이나 파워포인트에서 작업해
+폴더에 넣으므로 Claude 를 거치지 않아 훅이 불리지 않는다. 그쪽은 Actions 가 맡는다.
 
 ## 개발
 

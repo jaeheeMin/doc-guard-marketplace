@@ -18,8 +18,9 @@ import json
 import sys
 from pathlib import Path
 
-from checker.engine import check
+from checker.engine import OUT_OF_SCOPE, check
 from checker.loader import load
+from checker.locate import group_by_company
 from checker.model import ConfigError
 
 EXIT_PASS = 0
@@ -55,7 +56,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("paths", nargs="*", type=Path, help="검사할 문서")
     parser.add_argument(
-        "--rules", required=True, type=Path, help="규칙 파일 하나 또는 규칙 폴더"
+        "--rules", type=Path, help="규칙 파일 하나 또는 규칙 폴더"
+    )
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="파일마다 회사 폴더를 스스로 찾아 그 회사의 rules/ 를 쓴다. "
+        "여러 회사의 문서를 한 번에 검사할 때 쓴다",
     )
     parser.add_argument(
         "--root",
@@ -65,15 +72,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.auto == bool(args.rules):
+        parser.error("--rules 와 --auto 중 정확히 하나를 주십시오")
+
     try:
-        rules_path = args.rules.resolve()
-        types = load(rules_path)
-        # 관할 glob 은 회사 폴더를 기준으로 쓴다(`docs/제안서/**`). 규칙은 그 아래
-        # `rules/` 에 있으므로 한 단계 위가 기준이 된다.
-        rules_dir = rules_path if rules_path.is_dir() else rules_path.parent
-        root = (args.root or rules_dir.parent).resolve()
-        targets = [(p, _relative(p, root)) for p in args.paths]
-        report = check(targets, types)
+        if args.auto:
+            report = _check_auto(args.paths)
+        else:
+            report = _check_with_rules(args.rules, args.root, args.paths)
     except ConfigError as exc:
         json.dump(
             {"status": "config_error", "message": str(exc)},
@@ -87,6 +93,50 @@ def main(argv: list[str] | None = None) -> int:
     json.dump(report, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return EXIT_VIOLATION if report["summary"]["violations"] else EXIT_PASS
+
+
+def _check_with_rules(rules: Path, root_arg: Path | None, paths: list[Path]) -> dict:
+    rules_path = rules.resolve()
+    types = load(rules_path)
+    # 관할 glob 은 회사 폴더를 기준으로 쓴다(`docs/제안서/**`). 규칙은 그 아래
+    # `rules/` 에 있으므로 한 단계 위가 기준이 된다.
+    rules_dir = rules_path if rules_path.is_dir() else rules_path.parent
+    root = (root_arg or rules_dir.parent).resolve()
+    return check([(p, _relative(p, root)) for p in paths], types)
+
+
+def _check_auto(paths: list[Path]) -> dict:
+    """파일마다 회사 폴더를 찾아 그 회사의 규칙으로 검사하고 하나로 합친다.
+
+    문서 저장소 하나에 회사가 여럿 있으므로 한 PR 이 두 회사 폴더를 건드릴 수 있다.
+    회사마다 규칙이 다르니 묶어서 각각 돌린 뒤 결과를 합친다.
+    """
+    grouped, orphans = group_by_company(paths)
+
+    files = []
+    for company, members in sorted(grouped.items()):
+        types = load(company / "rules")
+        part = check([(p, _relative(p, company)) for p in members], types)
+        files.extend(part["files"])
+
+    # 회사 폴더 바깥의 파일은 대조할 기준이 없다. 검사한 적이 없으므로 통과라고
+    # 답하지 않는다.
+    for p in orphans:
+        files.append(
+            {"file": p.as_posix(), "type": None, "template": None,
+             "status": OUT_OF_SCOPE, "violations": []}
+        )
+
+    counted = [f for f in files if f["status"] != OUT_OF_SCOPE]
+    return {
+        "summary": {
+            "scoped": len(counted),
+            "passed": sum(1 for f in counted if f["status"] == "pass"),
+            "violations": sum(1 for f in counted if f["status"] == "violation"),
+            "out_of_scope": len(files) - len(counted),
+        },
+        "files": files,
+    }
 
 
 if __name__ == "__main__":
