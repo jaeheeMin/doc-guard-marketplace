@@ -1,9 +1,22 @@
-# 문서 저장소가 가져다 쓰는 재사용 워크플로.
+# 문서를 담은 저장소가 가져다 쓰는 재사용 워크플로.
 #
-# 이 저장소가 아니라 client-docs 같은 문서 저장소에서 불린다. 바뀐 문서만 골라 검사하고,
+# 이 저장소가 아니라 문서를 담은 저장소에서 불린다. 바뀐 문서만 골라 검사하고,
 # 위반이면 job 을 실패시키고 PR 에 결과를 남긴다.
 #
-# 문서 저장소 쪽에서는 이렇게 부른다.
+# 부르는 쪽이 둘이고, 규칙을 어디서 읽는지가 다르다.
+#
+# 프로젝트 저장소 — 문서만 있고 규칙은 문서 저장소에 있다. 회사를 지정한다.
+#
+#   jobs:
+#     doc-guard:
+#       uses: jaeheeMin/doc-guard-marketplace/.github/workflows/doc-guard.yml@main
+#       with:
+#         company: 대한물산
+#       permissions:
+#         contents: read
+#         pull-requests: write
+#
+# 문서 저장소 — 회사 폴더 안에 규칙과 문서가 함께 있다. 회사를 지정하지 않는다.
 #
 #   jobs:
 #     doc-guard:
@@ -17,6 +30,22 @@ name: doc-guard
 on:
   workflow_call:
     inputs:
+      company:
+        description: >
+          규칙과 템플릿을 읽어 올 회사 폴더 이름. 프로젝트 저장소에서 부를 때 반드시 준다.
+          비우면 이 저장소 안에서 회사 폴더를 찾는다(문서 저장소가 자기 문서를 검사하는 경우).
+        type: string
+        default: ''
+      rules-repo:
+        description: 규칙과 템플릿이 있는 문서 저장소. company 를 줄 때만 쓴다.
+        type: string
+        default: jaeheeMin/client-docs
+      rules-ref:
+        description: >
+          문서 저장소의 ref. 기본은 최신이다. 진행 중인 프로젝트가 기준 변경에 흔들리면
+          여기를 고정해 그 시점의 기준으로 검사한다.
+        type: string
+        default: main
       engine-ref:
         description: 검사 엔진을 가져올 doc-guard-marketplace 의 ref
         type: string
@@ -25,6 +54,12 @@ on:
         description: 결과를 PR 코멘트로 남길지
         type: boolean
         default: true
+    secrets:
+      rules-token:
+        description: >
+          비공개 문서 저장소를 읽을 토큰. 주지 않으면 기본 토큰으로 시도하며, 문서
+          저장소가 비공개면 가져오기 단계에서 실패한다. 통과로 넘어가지 않는다.
+        required: false
 
 jobs:
   check:
@@ -42,6 +77,17 @@ jobs:
           repository: jaeheeMin/doc-guard-marketplace
           ref: ${{ inputs.engine-ref }}
           path: .doc-guard-engine
+
+      # 규칙이 이 저장소에 없을 때만 가져온다. 가져오지 못하면 이 단계에서 실패하고
+      # 멈춘다. 규칙 없이 검사를 이어 가면 관할이 하나도 잡히지 않은 채 통과한다.
+      - name: 규칙 가져오기
+        if: inputs.company != ''
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.rules-repo }}
+          ref: ${{ inputs.rules-ref }}
+          token: ${{ secrets.rules-token || github.token }}
+          path: .doc-guard-rules
 
       - uses: astral-sh/setup-uv@v5
         with:
@@ -71,9 +117,22 @@ jobs:
         if: steps.changed.outputs.none != 'true'
         id: check
         shell: bash
+        env:
+          # 셸에 직접 끼워 넣지 않는다. 회사 이름은 바깥에서 오는 값이다.
+          COMPANY: ${{ inputs.company }}
         run: |
           set +e
-          uv run --project .doc-guard-engine python .doc-guard-engine/scripts/check_changed.py changed.txt > report.json 2> error.txt
+          if [ -n "$COMPANY" ]; then
+            # 규칙은 다른 저장소에 있다. 관할을 맞춰 볼 기준은 이 저장소의 루트다.
+            uv run --project .doc-guard-engine python .doc-guard-engine/scripts/check_changed.py \
+              changed.txt \
+              --rules ".doc-guard-rules/$COMPANY/rules" \
+              --root "$GITHUB_WORKSPACE" > report.json 2> error.txt
+          else
+            # 규칙이 이 저장소 안에 있다. 문서에서 위로 올라가며 회사 폴더를 찾는다.
+            uv run --project .doc-guard-engine python .doc-guard-engine/scripts/check_changed.py \
+              changed.txt > report.json 2> error.txt
+          fi
           code=$?
           set -e
           echo "exit-code=$code" >> "$GITHUB_OUTPUT"
@@ -118,6 +177,6 @@ jobs:
           case "$code" in
             0) echo "통과" ;;
             1) echo "::error::문서가 템플릿을 따르지 않습니다. PR 코멘트를 보십시오."; exit 1 ;;
-            2) echo "::error::규칙 파일에 문제가 있어 검사할 수 없습니다. 규칙 담당자에게 알리십시오."; exit 1 ;;
+            2) echo "::error::검사를 수행하지 못했습니다. 문서의 문제가 아니라 규칙이나 워크플로 설정의 문제입니다. PR 코멘트를 보십시오."; exit 1 ;;
             *) echo "::error::검사기가 예상치 못한 코드 $code 로 끝났습니다."; exit 1 ;;
           esac
