@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 from check_changed import (  # noqa: E402
     EXIT_CONFIG_ERROR,
     EXIT_PASS,
+    has_company_folder,
     main_entry,
     parse_args,
     split_listing,
@@ -181,6 +182,52 @@ def test_기준_경로를_잘못_주면_관할_밖으로_위장된다(tmp_path, 
     엉뚱한_기준 = tmp_path / "엉뚱"
     엉뚱한_기준.mkdir()
     code = main_entry([str(목록), "--rules", str(rules_dir), "--root", str(엉뚱한_기준)])
+    report = json.loads(capsys.readouterr().out)
+    assert code == EXIT_PASS
+    assert report["summary"]["out_of_scope"] == 1
+
+
+# ── 회사를 빠뜨린 경우 ────────────────────────────────────────────────────────
+#
+# 회사를 주지 않는 것은 "이 저장소 안에 회사 폴더가 있다" 는 뜻이다. 문서 저장소는 그렇고
+# 프로젝트 저장소는 그렇지 않다. 둘을 가를 단서가 회사 폴더의 유무다.
+
+
+def test_회사_폴더를_찾는다(tmp_path):
+    assert not has_company_folder(tmp_path)
+
+    (tmp_path / "대한물산" / "templates").mkdir(parents=True)
+    assert not has_company_folder(tmp_path), "templates 만으로는 회사 폴더가 아니다"
+
+    (tmp_path / "대한물산" / "rules").mkdir()
+    assert has_company_folder(tmp_path)
+
+
+def test_회사도_회사_폴더도_없으면_통과로_답하지_않는다(tmp_path, monkeypatch, capsys):
+    """프로젝트 저장소가 company 를 빠뜨리면 여기로 온다.
+
+    회사 폴더가 없으면 어떤 파일이 바뀌었든 검사할 방법이 없다. 그것은 관할 밖이 아니라
+    설정이 어긋난 것이다.
+    """
+    문서 = tmp_path / "docs" / "회의록" / "20260922_주간정기.md"
+    문서.parent.mkdir(parents=True)
+    문서.write_text("# 회의록\n", encoding="utf-8")
+    (tmp_path / "changed.txt").write_text("docs/회의록/20260922_주간정기.md\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    assert main_entry(["changed.txt"]) == EXIT_CONFIG_ERROR
+    assert "회사 폴더가 없습니다" in capsys.readouterr().out
+
+
+def test_회사_폴더가_있으면_스스로_찾아_나선다(tmp_path, monkeypatch, capsys):
+    """문서 저장소는 회사를 주지 않는다. 그 경로를 막지 않는다."""
+    (tmp_path / "대한물산" / "templates").mkdir(parents=True)
+    (tmp_path / "대한물산" / "rules").mkdir()
+    (tmp_path / "README.md").write_text("# 안내\n", encoding="utf-8")
+    (tmp_path / "changed.txt").write_text("README.md\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    code = main_entry(["changed.txt"])
     report = json.loads(capsys.readouterr().out)
     assert code == EXIT_PASS
     assert report["summary"]["out_of_scope"] == 1

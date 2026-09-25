@@ -18,6 +18,10 @@
   폴더가 없으므로 `--auto` 가 성립하지 않는다. `--rules` 로 규칙 폴더를, `--root` 로
   관할을 맞춰 볼 기준 경로를 받는다.
 
+회사를 지정하지 않은 것은 "이 저장소 안에 회사 폴더가 있다" 는 뜻이다. 그래서 회사 폴더가
+하나도 없으면 어떤 파일이 바뀌었든 검사할 방법이 없고, 그것은 프로젝트 저장소가 회사를
+빠뜨린 경우다. 통과로 넘기면 검사를 받지 않은 문서가 "관할 밖" 을 달고 들어간다.
+
 `--rules` 를 줄 때 `--root` 를 반드시 함께 받는다. 엔진의 기본 기준 경로는 "규칙 폴더의
 한 단계 위" 인데, 프로젝트 저장소의 문서는 그 아래에 있지 않다. 그러면 상대경로 계산이
 실패하고 절대경로로 떨어져 관할 glob 이 맞지 않게 되며, 그 문서는 위반도 오류도 아닌
@@ -103,6 +107,19 @@ def rules_problem(rules: str, root: str | None) -> str | None:
     return None
 
 
+def has_company_folder(root: Path, depth: int = 2) -> bool:
+    """회사 폴더가 하나라도 있는지 본다.
+
+    `templates/` 와 `rules/` 를 함께 둔 폴더가 회사 폴더다. 엔진이 문서에서 위로
+    올라가며 찾는 것과 같은 표식을, 저장소 위에서 아래로 훑어 찾는다.
+    """
+    for level in range(depth + 1):
+        for templates in root.glob("/".join(["*"] * level + ["templates"])):
+            if templates.is_dir() and (templates.parent / "rules").is_dir():
+                return True
+    return False
+
+
 def _force_utf8() -> None:
     """한글 메시지가 Windows 콘솔 코드페이지에서 깨지지 않게 한다."""
     for stream in (sys.stdout, sys.stderr):
@@ -150,6 +167,17 @@ def main_entry(argv: list[str] | None = None) -> int:
         return EXIT_PASS
 
     if rules is None:
+        # 회사를 지정하지 않았다는 것은 "이 저장소 안에 회사 폴더가 있다" 는 뜻이다.
+        # 회사 폴더가 하나도 없으면 어떤 파일이 바뀌었든 검사할 방법이 없다. 프로젝트
+        # 저장소가 회사를 빠뜨린 경우가 여기로 온다. 통과로 넘기면 검사를 받지 않은
+        # 문서가 "관할 밖" 을 달고 들어간다.
+        if not has_company_folder(Path.cwd()):
+            return config_error(
+                "회사를 지정하지 않았는데 이 저장소 안에 회사 폴더가 없습니다. "
+                "templates 와 rules 를 함께 둔 폴더를 찾지 못했습니다. 프로젝트 "
+                "저장소라면 워크플로에 company 를 주어 문서 저장소의 기준을 "
+                "가져오게 하십시오."
+            )
         return main(["--auto", *found])
     return main(["--rules", rules, "--root", root, *found])
 
