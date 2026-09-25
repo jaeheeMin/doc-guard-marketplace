@@ -171,6 +171,53 @@ doc-guard --clean <파일...> [--out-dir <곳>]
 오피스 문서(docx·xlsx·pptx)는 훅으로 잡을 수 없다. 팀원이 엑셀이나 파워포인트에서 작업해
 폴더에 넣으므로 Claude 를 거치지 않아 훅이 불리지 않는다. 그쪽은 Actions 가 맡는다.
 
+## 저장소에 붙이기
+
+Actions 껍데기는 재사용 워크플로다. 검사를 걸 저장소에서 불러 쓴다. 부르는 쪽이 둘이고
+**규칙이 어디 있느냐**가 다르다.
+
+**프로젝트 저장소** — 실제 문서가 사는 곳이다. 문서만 있고 규칙은 문서 저장소에 있으므로
+어느 회사의 기준을 쓸지 알려 주어야 한다.
+
+```yaml
+# .github/workflows/doc-guard.yml
+name: doc-guard
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  doc-guard:
+    uses: jaeheeMin/doc-guard-marketplace/.github/workflows/doc-guard.yml@main
+    with:
+      company: 대한물산
+    permissions:
+      contents: read
+      pull-requests: write
+```
+
+문서는 저장소 루트의 `docs/` 아래에 유형별 폴더로 둔다. 규칙의 관할(`docs/회의록/**`)은
+저장소 루트를 기준으로 맞춰 본다.
+
+**문서 저장소** — 회사 폴더 안에 `templates/` 와 `rules/` 와 문서가 함께 있다. 문서에서
+위로 올라가며 회사 폴더를 찾을 수 있으므로 `company` 를 주지 않는다. 그 한 줄만 빼면
+위와 같다.
+
+| 입력 | 기본값 | 무엇 |
+|---|---|---|
+| `company` | 없음 | 규칙을 읽어 올 회사 폴더 이름. 프로젝트 저장소에서는 필수 |
+| `rules-repo` | `jaeheeMin/client-docs` | 규칙과 템플릿이 있는 문서 저장소 |
+| `rules-ref` | `main` | 문서 저장소의 ref. 기준을 그 시점으로 고정하고 싶을 때 쓴다 |
+| `engine-ref` | `main` | 검사 엔진을 가져올 ref |
+| `comment` | `true` | 결과를 PR 코멘트로 남길지 |
+
+기준은 검사할 때마다 문서 저장소에서 읽어온다. 프로젝트 저장소에 복사해 두지 않는 이유는
+기준을 한 곳에서만 관리하기 위해서다. 대신 진행 중인 프로젝트가 기준 변경에 흔들릴 수
+있고, 그것이 아파지면 `rules-ref` 를 고정한다.
+
+문서 저장소가 비공개면 `secrets.rules-token` 으로 읽을 토큰을 준다. 주지 않으면 가져오기
+단계에서 실패하고 멈춘다. **통과로 넘어가지 않는다.**
+
 ## 개발
 
 ```bash
