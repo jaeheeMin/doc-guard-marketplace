@@ -45,3 +45,34 @@ jobs:
           code=$?
           set -e
           test "$code" -eq 1 || { echo "종료코드가 1이 아니라 $code 다"; exit 1; }
+
+      # 프로젝트 저장소에는 문서만 있고 규칙은 문서 저장소에 있다. 재사용 워크플로가
+      # 실제로 부르는 그 모양을 그대로 확인한다. 한글 경로가 섞인 채 두 운영체제에서
+      # 같은 결과가 나와야 하므로, 이 저장소의 전제를 지키는 자리이기도 하다.
+      # 임시 저장소를 작업 디렉터리 안에 만든다. RUNNER_TEMP 는 Windows 러너에서
+      # 역슬래시 경로라 bash 와 파이썬 사이에서 어긋난다.
+      - name: CLI 계약 확인 (규칙이 다른 트리에 있어도 위반은 1)
+        shell: bash
+        run: |
+          F=checker/tests/fixtures/client-docs/sample
+          P=.tmp-프로젝트저장소
+          mkdir -p "$P/docs/제안서"
+          cp "$F/docs/제안서/제안서최종.md" "$P/docs/제안서/"
+          echo "$P/docs/제안서/제안서최종.md" > "$P/changed.txt"
+          set +e
+          uv run python scripts/check_changed.py "$P/changed.txt" \
+            --rules "$F/rules" --root "$P" > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 1 || { echo "종료코드가 1이 아니라 $code 다"; exit 1; }
+
+      - name: CLI 계약 확인 (기준 경로를 빠뜨리면 통과가 아니라 2)
+        shell: bash
+        run: |
+          P=.tmp-프로젝트저장소
+          set +e
+          uv run python scripts/check_changed.py "$P/changed.txt" \
+            --rules checker/tests/fixtures/client-docs/sample/rules > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 2 || { echo "종료코드가 2가 아니라 $code 다"; exit 1; }
