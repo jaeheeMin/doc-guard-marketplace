@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -84,10 +85,17 @@ def test_검사할_것이_없으면_그렇게_말한다():
 
 # --- 훅 -------------------------------------------------------------------
 
+# 훅은 기본으로 엔진을 GitHub 에서 uvx 로 받아 온다(#12). 이 저장소 자체를 검사하는
+# 테스트가 매번 네트워크를 타면 느리고 오프라인에서 깨지므로, 이 워크트리를 엔진으로
+# 쓰도록 DOC_GUARD_ENGINE 을 지정한다 — uvx 가 로컬 경로를 그대로 --from 에 받는다.
+ENGINE_ROOT = Path(__file__).resolve().parents[2]
+
+
 def run_hook(payload: dict) -> tuple[int, dict | None]:
+    env = {**os.environ, "DOC_GUARD_ENGINE": str(ENGINE_ROOT)}
     done = subprocess.run(
         [sys.executable, str(HOOK)],
-        input=json.dumps(payload), capture_output=True, text=True, encoding="utf-8",
+        input=json.dumps(payload), capture_output=True, text=True, encoding="utf-8", env=env,
     )
     if not done.stdout.strip():
         return done.returncode, None
