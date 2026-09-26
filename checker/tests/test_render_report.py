@@ -97,6 +97,56 @@ def test_리포트_json이_깨지면_main이_검사불능으로_렌더링한다(
     assert "해석하지 못했습니다" in out
 
 
+def _skip(file: str, reason: str = "자리표시·시스템 파일이라 문서로 보지 않는다") -> dict:
+    return {
+        "file": file, "type": "제안서", "template": None,
+        "status": "skipped", "reason": reason, "violations": [],
+    }
+
+
+def test_통과_코멘트에_건너뛴_파일이_이유와_함께_보인다():
+    report = _report(1, 0, [
+        {"file": "docs/제안서/x.md", "type": "제안서", "template": "t", "status": "pass", "violations": []},
+        _skip("docs/제안서/.gitkeep"),
+    ])
+    report["summary"]["skipped"] = 1
+
+    text = render(report, 0)
+    assert "모두 템플릿을 따릅니다" in text
+    assert "건너뛴 파일 1건" in text
+    assert "### 건너뛴 파일" in text
+    assert ".gitkeep" in text
+    assert "자리표시" in text
+
+
+def test_위반_코멘트에도_건너뛴_파일이_보인다():
+    report = _report(1, 1, [
+        {
+            "file": "docs/제안서/틀림.md", "type": "제안서", "template": "t", "status": "violation",
+            "violations": [{"rule": "filename", "expected": "x", "actual": "틀림.md",
+                            "message": "파일 이름이 다르다"}],
+        },
+        _skip("docs/제안서/.gitkeep"),
+    ])
+    report["summary"]["skipped"] = 1
+
+    text = render(report, 1)
+    assert "❌ 템플릿 위반" in text
+    assert "### 건너뛴 파일" in text
+    assert ".gitkeep" in text
+
+
+def test_전부_건너뛴_파일뿐이면_검사한_문서는_없지만_통과다():
+    report = _report(0, 0, [_skip("a/.gitkeep", "이유1"), _skip("b/.DS_Store", "이유2")])
+    report["summary"]["skipped"] = 2
+
+    text = render(report, 0)
+    assert "검사할 문서는 없" in text
+    assert "건너뛴 파일 2건" in text
+    assert "관할 밖" not in text
+    assert ".gitkeep" in text and ".DS_Store" in text
+
+
 def test_리포트_파일이_없으면_main이_검사불능으로_렌더링한다(tmp_path, capsys):
     from render_report import main
 

@@ -48,13 +48,15 @@ def test_전부_관할_밖이어도_0(capsys, rules_dir, sample):
 def test_인자가_없어도_0(capsys, rules_dir):
     code, out = invoke(capsys, rules_dir)
     assert code == EXIT_PASS
-    assert out["summary"] == {"scoped": 0, "passed": 0, "violations": 0, "out_of_scope": 0}
+    assert out["summary"] == {
+        "scoped": 0, "passed": 0, "violations": 0, "skipped": 0, "out_of_scope": 0,
+    }
 
 
 def test_리포트_모양(capsys, rules_dir, sample):
     _, out = invoke(capsys, rules_dir, sample / "docs/제안서/제안서최종.md")
     assert set(out) == {"summary", "files"}
-    assert set(out["summary"]) == {"scoped", "passed", "violations", "out_of_scope"}
+    assert set(out["summary"]) == {"scoped", "passed", "violations", "skipped", "out_of_scope"}
     f = out["files"][0]
     assert set(f) == {"file", "type", "template", "status", "violations"}
     assert set(f["violations"][0]) == {"rule", "expected", "actual", "message"}
@@ -189,3 +191,85 @@ def test_한글_출력이_인코딩으로_죽지_않는다(capsys, rules_dir, sa
     assert "파일 이름" in message
     # ensure_ascii=False 로 내보내므로 한글이 escape 되지 않고 그대로 실려야 한다
     message.encode("utf-8")
+
+
+# --- 자리표시·시스템 파일 건너뛰기 (#15) -------------------------------------
+
+def test_gitkeep은_관할_안에서_건너뛴다(capsys, tmp_path):
+    rules = _rules(tmp_path, "템플릿: ../templates/제안서.md\n관할: 'docs/**'\n규칙: []\n")
+    doc = tmp_path / "회사" / "docs" / ".gitkeep"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("", encoding="utf-8")
+
+    code, out = invoke(capsys, rules, doc)
+    assert code == EXIT_PASS
+    assert out["files"][0]["status"] == "skipped"
+    assert out["files"][0]["reason"]
+    assert out["summary"] == {
+        "scoped": 0, "passed": 0, "violations": 0, "skipped": 1, "out_of_scope": 0,
+    }
+
+
+def test_DS_Store도_대소문자와_무관하게_건너뛴다(capsys, tmp_path):
+    rules = _rules(tmp_path, "템플릿: ../templates/제안서.md\n관할: 'docs/**'\n규칙: []\n")
+    doc = tmp_path / "회사" / "docs" / ".DS_Store"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("", encoding="utf-8")
+
+    code, out = invoke(capsys, rules, doc)
+    assert code == EXIT_PASS
+    assert out["files"][0]["status"] == "skipped"
+
+
+def test_리더가_없는_형식은_건너뛰지_않고_검사불능이다(capsys, tmp_path):
+    """진짜 산출물이 자리표시 예외를 타고 검사 없이 통과하면 안 된다(CLAUDE.md 원칙 7)."""
+    rules = _rules(
+        tmp_path,
+        "템플릿: ../templates/제안서.md\n관할: 'docs/**'\n규칙:\n  - 종류: required_sections\n",
+    )
+    doc = tmp_path / "회사" / "docs" / "문서.hwp"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("아무거나", encoding="utf-8")
+
+    code, out = invoke(capsys, rules, doc)
+    assert code == EXIT_CONFIG_ERROR
+    assert "리더가 없어 검사할 수 없다" in out["message"]
+    assert "관할을 좁혀" in out["message"]
+
+
+def test_관할_밖의_gitkeep은_건너뛴_것이_아니라_관할_밖이다(capsys, tmp_path):
+    rules = _rules(tmp_path, "템플릿: ../templates/제안서.md\n관할: 'docs/제안서/**'\n규칙: []\n")
+    doc = tmp_path / "회사" / "other" / ".gitkeep"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text("", encoding="utf-8")
+
+    code, out = invoke(capsys, rules, doc)
+    assert code == EXIT_PASS
+    assert out["files"][0]["status"] == "out_of_scope"
+    assert out["summary"]["skipped"] == 0
+    assert out["summary"]["out_of_scope"] == 1
+
+
+def test_위반_문서와_gitkeep이_섞이면_위반이고_건너뛴_파일도_남는다(capsys, tmp_path):
+    body = (
+        r"템플릿: ../templates/제안서.md" "\n"
+        r"관할: 'docs/제안서/**'" "\n"
+        "규칙:\n"
+        r"  - 종류: filename" "\n"
+        r"    패턴: '^\d{8}_.+_제안서\.md$'" "\n"
+    )
+    rules = _rules(tmp_path, body)
+    d = tmp_path / "회사" / "docs" / "제안서"
+    d.mkdir(parents=True)
+    bad = d / "제안서최종.md"
+    bad.write_text("# 제목\n\n## 개요\n", encoding="utf-8")
+    keep = d / ".gitkeep"
+    keep.write_text("", encoding="utf-8")
+
+    code, out = invoke(capsys, rules, bad, keep)
+    assert code == EXIT_VIOLATION
+    statuses = {f["file"]: f["status"] for f in out["files"]}
+    assert statuses["docs/제안서/제안서최종.md"] == "violation"
+    assert statuses["docs/제안서/.gitkeep"] == "skipped"
+    assert out["summary"]["violations"] == 1
+    assert out["summary"]["skipped"] == 1

@@ -39,13 +39,25 @@ def render(report: dict, code: int) -> str:
     summary = report.get("summary", {})
     scoped = summary.get("scoped", 0)
     violations = summary.get("violations", 0)
+    skipped = summary.get("skipped", 0)
+    skipped_files = [f for f in report.get("files", []) if f.get("status") == "skipped"]
 
     if scoped == 0:
-        out += ["검사 대상 문서가 없습니다. doc-guard 관할 밖의 변경입니다."]
+        if skipped:
+            # 관할 안에 자리표시·시스템 파일만 있었다. 대조할 문서는 없지만, 그것을
+            # "관할 밖" 이라 하면 왜 아무것도 안 걸렸는지 알 수 없다.
+            out += [f"검사할 문서는 없고, 건너뛴 파일 {skipped}건이 있습니다."]
+            out += _render_skipped(skipped_files)
+        else:
+            out += ["검사 대상 문서가 없습니다. doc-guard 관할 밖의 변경입니다."]
         return "\n".join(out)
 
     if violations == 0:
-        out += [f"문서 {scoped}건을 검사했고 모두 템플릿을 따릅니다."]
+        line = f"문서 {scoped}건을 검사했고 모두 템플릿을 따릅니다."
+        if skipped:
+            line += f" / 건너뛴 파일 {skipped}건"
+        out += [line]
+        out += _render_skipped(skipped_files)
         return "\n".join(out)
 
     out += [
@@ -70,8 +82,23 @@ def render(report: dict, code: int) -> str:
             out += ["", f"쓸 템플릿: `{template}`"]
         out.append("")
 
+    out += _render_skipped(skipped_files)
     out += ["---", "", "위 템플릿을 보고 문서를 고친 뒤 다시 올리십시오."]
     return "\n".join(out)
+
+
+def _render_skipped(skipped_files: list[dict]) -> list[str]:
+    """건너뛴 파일을 짧게 알린다.
+
+    통과와 위반 코멘트 둘 다에서 부른다. 조용히 건너뛰면 "왜 이 파일은 검사 결과에
+    안 보이지" 라는 의문이 남으므로, 위반이 없어도 이유와 함께 적어 둔다.
+    """
+    if not skipped_files:
+        return []
+    lines = ["", "### 건너뛴 파일", ""]
+    for f in skipped_files:
+        lines.append(f"- `{f.get('file')}` — {f.get('reason', '')}")
+    return lines
 
 
 def main() -> int:

@@ -87,7 +87,7 @@ stdout 에 JSON 리포트를 낸다. 플러그인 훅 출력과 PR 코멘트가 
 
 ```json
 {
-  "summary": {"scoped": 1, "passed": 0, "violations": 1, "out_of_scope": 0},
+  "summary": {"scoped": 1, "passed": 0, "violations": 1, "skipped": 1, "out_of_scope": 0},
   "files": [
     {
       "file": "docs/제안서/제안서최종.md",
@@ -98,13 +98,28 @@ stdout 에 JSON 리포트를 낸다. 플러그인 훅 출력과 PR 코멘트가 
         {"rule": "filename", "expected": "^\d{8}_.+_제안서\.md$",
          "actual": "제안서최종.md", "message": "파일 이름이 정해진 형식과 다르다"}
       ]
+    },
+    {
+      "file": "docs/제안서/.gitkeep",
+      "type": "제안서",
+      "template": "../templates/제안서.md",
+      "status": "skipped",
+      "reason": "자리표시·시스템 파일이라 문서로 보지 않는다",
+      "violations": []
     }
   ]
 }
 ```
 
-상태는 셋이다. `out_of_scope` 는 대조할 템플릿이 없어 검사하지 않았다는 뜻이고,
+상태는 넷이다. `out_of_scope` 는 대조할 템플릿이 없어 검사하지 않았다는 뜻이고,
 `pass` 와 구분된다. 검사한 적 없는 파일에 "통과" 라고 답하면 거짓말이다.
+
+`skipped` 는 관할 안에 있었지만 `.gitkeep` 처럼 자리표시·시스템 파일이라 애초에
+문서로 보지 않은 것이다. 위반으로도, `scoped`(검사한 문서 수)로도 세지 않고
+`reason` 과 함께 따로 센다. 목록은 `engine.py`의 `SKIPPED_BASENAMES` 한 곳에만
+둔다 — 늘리면 진짜 산출물이 검사 없이 통과할 위험이 커지므로, 도구가 자동으로
+남기는 것이 확실한 이름만 짧게 유지한다. 그 밖에 읽을 리더가 없는 형식(`.hwp`,
+`.pdf` 등)은 이 예외를 타지 않고 여전히 설정 오류(검사 불능)로 끊는다.
 
 위반이 없어도 판정된 유형과 템플릿 경로를 싣는다. 문서를 올리는 사람은 위반을 알기
 전에 "뭘 보고 쓰지" 부터 궁금하기 때문이다.

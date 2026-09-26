@@ -23,8 +23,8 @@ from pathlib import Path
 from checker.cli import EXIT_CONFIG_ERROR, EXIT_PASS, main
 
 EMPTY_REPORT = (
-    '{"summary": {"scoped": 0, "passed": 0, "violations": 0, "out_of_scope": 0},'
-    ' "files": []}'
+    '{"summary": {"scoped": 0, "passed": 0, "violations": 0, "skipped": 0,'
+    ' "out_of_scope": 0}, "files": []}'
 )
 
 
