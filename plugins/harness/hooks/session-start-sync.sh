@@ -69,14 +69,14 @@ else
 fi
 
 if [ "$branch" = "main" ]; then
-  add "main 에서는 커밋할 수 없습니다. 작업을 시작하려면 /start 를 실행하십시오."
+  add "main 에서는 커밋할 수 없습니다. 작업을 시작하려면 /harness:start 를 실행하십시오."
 fi
 
 changed="$(git status --porcelain || true)"
 if [ -n "$changed" ]; then
   add "커밋되지 않은 변경이 있습니다."
   add "$changed"
-  add "작업을 마칠 때 /deliver 로 커밋과 푸시와 PR 까지 정리하십시오."
+  add "작업을 마칠 때 /harness:deliver 로 커밋과 푸시와 PR 까지 정리하십시오."
 fi
 
 printf '%s' "$lines"

@@ -3,7 +3,7 @@ name: scaffold
 description: 새 고객사 Project Repository 를 처음 만들었을 때 표준 구조(templates/, rules/, docs/ssot/ 등)를 만든다. 사용자가 "스캐폴딩 해줘", "프로젝트 구조 만들어줘", "초기 세팅해줘" 라고 말할 때 사용한다.
 ---
 
-# /scaffold
+# /harness:scaffold
 
 새로 만든 Project Repository 에 doc-guard 가 기대하는 표준 구조를 만드는
 입구다. `templates/` 와 `rules/` 를 저장소 루트에 두면, 검사 엔진이 문서에서
@@ -17,7 +17,7 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
    없으면 `--dry-run` 없이 다시 돌린다.
 
    ```bash
-   uv run --no-project python "<이 스킬의 base directory>/scaffold.py" \
+   uv run --no-project python "<이 스킬의 base directory>/harness:scaffold.py" \
      --client "<고객사>" --project "<프로젝트>" --dry-run
    ```
 

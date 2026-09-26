@@ -38,7 +38,7 @@ command -v jq >/dev/null 2>&1 || has_jq=0
 
 if [ "$has_jq" -eq 1 ]; then
   # 입력이 유효한 JSON 이 아니면 jq 가 실패한다. pipefail 아래에서 스크립트가
-  # 그대로 죽지 않도록 받아 내고, 거짓으로 본다. 거짓 쪽이 /deliver 를 지시하는
+  # 그대로 죽지 않도록 받아 내고, 거짓으로 본다. 거짓 쪽이 /harness:deliver 를 지시하는
   # 안전한 경로다.
   stop_hook_active="$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)"
   # Windows 네이티브 jq.exe 는 텍스트 모드로 출력해 LF 를 CRLF 로 바꾼다.
@@ -59,11 +59,11 @@ if [ "$stop_hook_active" = "true" ]; then
   # 유실 가능성을 남긴다.
   warn "[경고] 커밋되지 않은 변경이 ${branch} 브랜치에 남은 채로 세션이 끝났습니다."
   warn "$changed"
-  warn "다음 세션에서 /deliver 를 실행해 정리하십시오."
+  warn "다음 세션에서 /harness:deliver 를 실행해 정리하십시오."
   exit 0
 fi
 
-reason="커밋되지 않은 변경이 ${branch} 브랜치에 남아 있습니다. /deliver 를 실행해 커밋과 동기화와 푸시와 PR 까지 마치십시오. 이번 세션에서 끝내지 못한 작업이 따로 있으면 이어서 /wrapup 으로 이슈에 등록하십시오."
+reason="커밋되지 않은 변경이 ${branch} 브랜치에 남아 있습니다. /harness:deliver 를 실행해 커밋과 동기화와 푸시와 PR 까지 마치십시오. 이번 세션에서 끝내지 못한 작업이 따로 있으면 이어서 /harness:wrapup 으로 이슈에 등록하십시오."
 
 # hookSpecificOutput.additionalContext 는 세션 종료를 막지 못하고 참고
 # 정보로만 붙는다. decision:"block" 을 최상위로 낸다. continue 키는 일부러
