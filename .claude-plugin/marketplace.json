@@ -9,11 +9,11 @@
   },
   "plugins": [
     {
-      "name": "doc-guard",
-      "source": "./plugins/doc-guard",
-      "description": "문서를 저장하기 전에 고객사별 템플릿 규칙과 대조해 검사하고, 위반하면 위반 목록과 쓸 템플릿 경로를 알려준다.",
+      "name": "harness",
+      "source": "./plugins/harness",
+      "description": "고객사 Project Repository 에 설치해 쓰는 Blueward 하네스. 구조 생성, 문서 검사(doc-guard), 협업 규칙과 Skill 을 제공한다.",
       "category": "productivity",
-      "tags": ["docs", "template", "validation", "compliance"]
+      "tags": ["docs", "template", "validation", "compliance", "harness", "workflow"]
     }
   ]
 }

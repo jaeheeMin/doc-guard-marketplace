@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project python \"${CLAUDE_PLUGIN_ROOT}/hooks/pre_write_guard.py\" || { echo \"doc-guard: 훅을 실행할 수 없어 문서를 검사하지 못했다. uv 가 설치되어 있는지 확인한다. 검사하지 못한 상태로 통과시키지 않는다.\" >&2; exit 2; }",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-git-guard.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start-sync.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-deliver.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

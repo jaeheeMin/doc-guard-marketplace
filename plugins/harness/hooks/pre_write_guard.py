@@ -15,7 +15,7 @@ Windows 에서 CRLF 와 한글 인코딩을 다루기 쉽다. 이 저장소의 b
 따로 손을 봐야 했다.
 
 **왜 이 파일이 `checker` 를 import 하지 않는가.** 마켓플레이스로 설치된 플러그인
-캐시에는 `plugins/doc-guard/` 만 들어가고 `checker/` 는 따라오지 않는다(#12). 예전에는
+캐시에는 `plugins/harness/` 만 들어가고 `checker/` 는 따라오지 않는다(#12). 예전에는
 `sys.path` 에 저장소 루트를 얹어 `checker.locate` 를 가져다 썼는데, 설치본에는 그
 루트 자체가 없어 `ModuleNotFoundError` 로 죽었고, Claude Code 는 이 훅의 0/2 가 아닌
 종료코드를 "막지 않음" 으로 여겨 조용히 통과시켰다(CLAUDE.md 원칙 7 위반). 그래서 이
