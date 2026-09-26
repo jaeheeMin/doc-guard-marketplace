@@ -9,9 +9,9 @@
 안내하는 체계(**doc-guard**)의 Plugin Repository(이 저장소)다. 세 가지를 담는다.
 
 - `checker/` — 검사 엔진. 문서를 읽어 규칙 위반 목록을 낸다.
-- `plugins/doc-guard/` — 엔진을 부르는 Claude Code 플러그인. 훅만 들어 있고
-  엔진은 들어 있지 않다. 이 저장소 자체가 플러그인 마켓플레이스라 팀원은
-  여기서 설치해 쓴다.
+- `plugins/doc-guard/` — 엔진을 부르는 Claude Code 플러그인. 훅과 `/scaffold`
+  Skill 이 들어 있고 엔진은 들어 있지 않다. 이 저장소 자체가 플러그인
+  마켓플레이스라 팀원은 여기서 설치해 쓴다.
 - `.github/workflows/doc-guard.yml` — Project Repository 가 불러 쓰는 재사용
   워크플로. GitHub Actions 경로는 이것을 통해 엔진을 가져다 쓴다.
 
@@ -79,10 +79,13 @@ Project Repository 에서 PR 을 열면 검사가 시작된다. 문서와 기준
 따라가지 않아, 훅이 검사를 시작하기 전에 죽는다. 그리고 죽으면 조용히 통과시킨다.
 한글 경로에서 회사 폴더를 찾지 못해 통과하는 결함도 함께 남아 있다.
 
-**Project Repository 에 붙이는 절차는 아직 없다.** 엔진은 문서 위에서
-`templates/` 와 `rules/` 를 찾으므로 두 폴더를 Project Repository 에 두기만
-하면 동작한다. 남은 일은 새 Project Repository 에 이 구조와 caller workflow 를
-만들어 주는 것이고, `/scaffold` Skill 로 만들 계획이다.
+**Project Repository 에 붙이는 절차는 `/scaffold` Skill 이 만든다.** 엔진은
+문서 위에서 `templates/` 와 `rules/` 를 찾으므로 두 폴더를 Project Repository
+에 두기만 하면 동작한다. `/scaffold` Skill 이 그 구조(`templates/`, `rules/`,
+`docs/ssot/`, `conventions/`, `audit/`, `env/`)와 caller workflow
+(`.github/workflows/doc-guard.yml`)를 한 번에 만든다. 다만 Plugin 설치본에서
+실제로 불러 본 적은 아직 없다 — 훅과 같은 결함(아래)을 이 경로도 안고 있을
+수 있다.
 
 열려 있는 결함은 GitHub 이슈로 관리한다. 우선순위는 검사 불능 구분과 훅 배선이
 앞이고, 인코딩이 그다음이다.
@@ -92,8 +95,8 @@ Project Repository 에서 PR 을 열면 검사가 시작된다. 문서와 기준
 정한 것과 정하지 않은 것을 섞지 않기 위해 남겨 둔다.
 
 - **새 Project Repository 에 caller workflow 를 넣는 방법.** `/scaffold` 가
-  만들어 줄 계획이지만, 저장소 템플릿이나 조직 차원 설정과 비교해 정하지는
-  않았다.
+  만들어 주지만, 사람이 매번 불러야 한다. 저장소 템플릿이나 조직 차원 설정과
+  비교해 정하지는 않았다.
 - **제안의 범위.** 지금은 무엇이 틀렸는지 알리고 쓸 템플릿을 안내하는 데까지다.
   고치는 방법을 행동 단위로 알려주거나 고쳐진 파일을 만들어 주는 것은 나중 일이다.
 - **끝난 프로젝트 산출물의 보관.** 문서 저장소의 `docs/` 가 하던 자산 보관
