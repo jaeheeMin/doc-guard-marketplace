@@ -163,6 +163,11 @@ merge 하면 그대로 넘어간다. 그런 경우에도 merge 뒤 감지가 이
 승인하는 것은 이 검사가 가려내지 못한다 — 그것은 사람의 검토가 할 몫으로
 남는다.
 
+**공통 개발 규칙을 harness Plugin 에 담고 세션과 Spec 에 연결했다(#53).**
+`plugins/harness/conventions/common.md` 에 CR-001 ~ CR-008 을 적었고,
+세션 시작 훅이 그 목록을 매번 요약해 맥락에 넣으며, `/harness:spec` 과
+스켈레톤 `conventions/README.md` 가 이 문서를 링크한다.
+
 ### 아직 정하지 않은 것
 
 정한 것과 정하지 않은 것을 섞지 않기 위해 남겨 둔다.
