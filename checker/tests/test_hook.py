@@ -41,6 +41,15 @@ PROPOSAL_TEMPLATE = "# 제안서\n\n## 개요\n\n## 일정\n"
 
 BROKEN_RULES = "이것은: [부서진, yaml\n"
 
+# 한글이 겹으로 섞인 경로(#14)를 재현할 때 쓰는 최소 규칙. 템플릿을 읽는 규칙이
+# 아니므로(filename) '템플릿' 없이도 성립한다.
+SSOT_RULES = r"""관할: "docs/ssot/**"
+
+규칙:
+  - 종류: filename
+    패턴: '^PRD\.md$'
+"""
+
 
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,6 +82,20 @@ def company(tmp_path) -> Path:
     return root
 
 
+@pytest.fixture()
+def ssot_company(tmp_path) -> Path:
+    """`고객사/프로젝트` 처럼 한글 폴더가 겹으로 이어지는 회사 폴더(#14).
+
+    `company` 픽스처는 회사 폴더 이름 하나만 한글이다. 여기서는 그 위 폴더도
+    한글로 두어, 실제 프로젝트 저장소에서 흔한 모양을 흉내 낸다.
+    """
+    root = tmp_path / "고객사" / "프로젝트"
+    (root / "templates").mkdir(parents=True)
+    _write(root / "rules" / "ssot.yaml", SSOT_RULES)
+    (root / "docs" / "ssot").mkdir(parents=True)
+    return root
+
+
 def run_hook(hook: Path, payload: dict, engine: str) -> tuple[int, dict | None]:
     env = {**os.environ, "DOC_GUARD_ENGINE": engine}
     done = subprocess.run(
@@ -83,6 +106,31 @@ def run_hook(hook: Path, payload: dict, engine: str) -> tuple[int, dict | None]:
     if not done.stdout.strip():
         return done.returncode, None
     return done.returncode, json.loads(done.stdout)
+
+
+def run_hook_bytes(hook: Path, payload: dict, engine: str) -> tuple[int, dict | None]:
+    """`run_hook` 과 같지만 stdin 을 UTF-8 바이트로 그대로 보내고, 파이썬이 스스로
+    UTF-8 을 강제하는 환경변수 없이 부른다(#14).
+
+    Windows 콘솔 기본 코드페이지(cp949)에서 한글 경로가 깨지는 상황을 그대로
+    재현하려면 두 조건이 함께 있어야 한다 — PYTHONUTF8 · PYTHONIOENCODING ·
+    PYTHONLEGACYWINDOWSSTDIO 가 없어 파이썬이 로캘 기본 인코딩을 쓰고, 그런데도
+    보내는 표준입력은 실제 팀원 PC 처럼 진짜 UTF-8 바이트여야 한다. `ensure_ascii`
+    를 꺼서 한글이 `\\uXXXX` 로 도망가지 않고 원래 바이트 그대로 나가게 한다.
+    """
+    env = os.environ.copy()
+    for key in ("PYTHONUTF8", "PYTHONIOENCODING", "PYTHONLEGACYWINDOWSSTDIO"):
+        env.pop(key, None)
+    env["DOC_GUARD_ENGINE"] = engine
+    done = subprocess.run(
+        [sys.executable, str(hook)],
+        input=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        capture_output=True, env=env, timeout=180,
+    )
+    stdout = done.stdout.decode("utf-8", errors="replace")
+    if not stdout.strip():
+        return done.returncode, None
+    return done.returncode, json.loads(stdout)
 
 
 def decision(out: dict | None) -> str | None:
@@ -155,3 +203,53 @@ def test_입력을_해석하지_못하면_통과시키지_않는다(installed_ho
     )
     assert done.returncode == 0
     assert decision(json.loads(done.stdout)) == "deny"
+
+
+# --- 한글 경로(#14) --------------------------------------------------------
+#
+# 아래 테스트들은 `run_hook_bytes` 로 UTF-8 바이트를 곧장 흘려보내고, 파이썬이
+# 스스로 UTF-8 을 강제하는 환경변수를 걷어낸 채로 훅을 부른다. `_force_utf8_io()`
+# 가 stdin 을 못 박지 않으면 Windows 로캘 기본 코드페이지(cp949)가 한글 경로를
+# 깨뜨려, 아래 단언 중 적어도 하나는 실패한다 — 그것이 이 테스트의 존재 이유다.
+
+
+def test_한글이_겹친_경로에서도_설치본이_파일명_위반을_막는다(installed_hook, ssot_company):
+    target = ssot_company / "docs" / "ssot" / "PRD_v2.md"
+    code, out = run_hook_bytes(
+        installed_hook, _write_payload(target, "# PRD\n"), str(ENGINE_ROOT)
+    )
+    assert decision(out) == "deny"
+    assert "파일 이름이 정해진 형식과 다르다" in out["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_한글이_겹친_경로에서도_설치본이_규칙에_맞는_파일은_통과시킨다(installed_hook, ssot_company):
+    target = ssot_company / "docs" / "ssot" / "PRD.md"
+    code, out = run_hook_bytes(
+        installed_hook, _write_payload(target, "# PRD\n"), str(ENGINE_ROOT)
+    )
+    assert code == 0 and out is None
+
+
+def test_한글_파일명도_설치본이_위반으로_잡는다(installed_hook, ssot_company):
+    target = ssot_company / "docs" / "ssot" / "요구사항.md"
+    code, out = run_hook_bytes(
+        installed_hook, _write_payload(target, "# 요구사항\n"), str(ENGINE_ROOT)
+    )
+    assert decision(out) == "deny"
+    assert "파일 이름이 정해진 형식과 다르다" in out["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_경로가_깨져_들어오면_검사_불능으로_거절한다(installed_hook, tmp_path):
+    """경로 문자열에 U+FFFD 가 섞여 있으면 관할 판단 자체가 불가능하다(#14).
+
+    진짜 관할 밖(회사 폴더가 없는 경우, 위 테스트들에도 있다)과는 받는 처분이
+    달라야 한다 — 이쪽은 allow 가 아니라 deny 다(CLAUDE.md 원칙 7).
+    """
+    target = tmp_path / "��" / "docs" / "PRD.md"
+    code, out = run_hook_bytes(
+        installed_hook, _write_payload(target, "# PRD\n"), str(ENGINE_ROOT)
+    )
+    assert decision(out) == "deny"
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "문서 경로가 깨져 들어와" in reason
+    assert "doc-guard 소관인지" in reason

@@ -57,8 +57,24 @@ def allow() -> None:
     sys.exit(ALLOW)
 
 
+def _has_broken_encoding(text: str) -> bool:
+    """복원할 수 없게 깨진 문자가 섞여 있는지 본다.
+
+    U+FFFD 는 디코더가 원래 바이트를 되살리지 못해 대신 끼워 넣는 대체 문자다.
+    서로게이트(U+D800~U+DFFF)는 짝을 이루지 못한 UTF-16 코드 단위가 파이썬
+    문자열에 그대로 남을 때 나온다. 둘 다 원래 경로가 이미 사라졌다는 신호다.
+    """
+    return any(ch == "�" or 0xD800 <= ord(ch) <= 0xDFFF for ch in text)
+
+
 def deny(reason: str) -> None:
-    """쓰기를 막고 사유를 사람과 Claude 에게 보여준다."""
+    """쓰기를 막고 사유를 사람과 Claude 에게 보여준다.
+
+    입출력 인코딩은 `main()` 이 시작하자마자 `_force_utf8_io()` 로 한곳에서 못
+    박아 둔다(#14). 여기서 다시 손대지 않는다 — stdout 조치만 있고 stdin 조치가
+    빠져 있던 것이 바로 이 결함의 원인이었으므로, 인코딩 설정은 두 번 다시
+    흩어 두지 않는다.
+    """
     payload = {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -66,10 +82,6 @@ def deny(reason: str) -> None:
             "permissionDecisionReason": reason,
         }
     }
-    # 출력 인코딩을 못 박는다. Windows 콘솔 기본값으로는 한글을 낼 수 없다.
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        reconfigure(encoding="utf-8")
     json.dump(payload, sys.stdout, ensure_ascii=False)
     sys.stdout.write("\n")
     sys.exit(0)
@@ -144,13 +156,6 @@ def format_violations(report: dict) -> str:
 
 
 def _main() -> None:
-    # Windows 콘솔의 기본 stdin 인코딩으로는 회사 폴더나 문서 이름에 든 한글 경로가
-    # 깨질 수 있다(#14 의 일부). 여기서 못 박아 두면 적어도 이 훅이 받는 JSON 은
-    # 안전하게 읽힌다.
-    reconfigure_stdin = getattr(sys.stdin, "reconfigure", None)
-    if reconfigure_stdin is not None:
-        reconfigure_stdin(encoding="utf-8")
-
     try:
         payload = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
@@ -173,6 +178,18 @@ def _main() -> None:
     path = Path(raw_path)
     if path.suffix.lower() not in TEXT_SUFFIXES:
         allow()
+
+    if _has_broken_encoding(raw_path):
+        # 경로 문자열에 U+FFFD(대체 문자)나 짝을 잃은 서로게이트가 섞여 있다면,
+        # 어딘가에서 인코딩이 깨져 들어왔다는 뜻이다. 원래 경로를 잃어버렸으므로
+        # 이 문서가 회사 폴더 아래(=doc-guard 소관)인지조차 판단할 수 없다.
+        # 판단 불능을 관할 밖으로 뭉개면, 진짜 위반 문서가 깨진 경로 덕에 조용히
+        # 통과해 버린다 — 이슈 #14, CLAUDE.md 원칙 7("검사를 못 했다" 를 "통과" 나
+        # "위반" 으로 뭉개지 않는다).
+        deny(
+            "문서 경로가 깨져 들어와(인코딩 문제) 이 문서가 doc-guard 소관인지 "
+            "판단할 수 없습니다.\n확인되지 않는 상태로 통과시키지 않습니다."
+        )
 
     company = find_company_root(path)
     if company is None:
@@ -258,6 +275,22 @@ def _main() -> None:
     )
 
 
+def _force_utf8_io() -> None:
+    """stdin·stdout·stderr 인코딩을 한곳에서 못 박는다.
+
+    예전에는 stdout 은 `deny()` 안에서, stdin 은 `_main()` 안에서 따로따로
+    손댔다. 그러다 stdout 조치만 남고 stdin 조치가 빠지는 일이 실제로 있었다
+    (#14) — Windows 콘솔 기본 코드페이지로 표준입력을 읽으면 한글이 섞인
+    경로가 깨지고, `find_company_root` 가 회사 폴더를 찾지 못해 위반 문서를
+    조용히 통과시켰다. 입출력 인코딩을 이 함수 하나로 모아, 한쪽만 고쳐지고
+    다른 쪽은 잊히는 일이 다시 생기지 않게 한다.
+    """
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def main() -> None:
     """`_main` 을 감싸 무엇이 터지든 막는 쪽으로 떨어지게 한다.
 
@@ -269,6 +302,7 @@ def main() -> None:
     `sys.exit` 로 끝나므로(`SystemExit` 는 `Exception` 이 아니다) 정상 종료 경로는
     이 처리에 걸리지 않는다.
     """
+    _force_utf8_io()
     try:
         _main()
     except Exception as exc:  # noqa: BLE001 - 의도적으로 전부 잡아 fail-closed 로 만든다
