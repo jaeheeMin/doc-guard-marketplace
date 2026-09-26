@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -122,14 +123,36 @@ def test_훅_스크립트에_저장소_이름이_하드코딩되어_있지_않�
 
 # --- push 가드 훅이 실제로 동작하는지 -----------------------------------
 
-_HAS_BASH = shutil.which("bash") is not None
+def _find_bash() -> str | None:
+    """훅을 돌릴 진짜 bash 를 찾는다.
+
+    Windows 에서는 PATH 에서 `System32\bash.exe`(WSL 실행기)가 먼저 잡히곤 한다. 리눅스
+    배포판이 없는 곳에서는 이것이 JSON 대신 안내 문구를 내므로 훅 검사에 쓸 수 없다.
+    Claude Code 가 Windows 에서 훅을 돌리는 Git Bash 를 먼저 찾는다.
+    """
+    if os.name == "nt":
+        for candidate in (
+            Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "bin" / "bash.exe",
+            Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Git" / "bin" / "bash.exe",
+        ):
+            if candidate.is_file():
+                return str(candidate)
+        found = shutil.which("bash")
+        if found and "system32" not in found.lower():
+            return found
+        return None
+    return shutil.which("bash")
+
+
+_BASH = _find_bash()
+_HAS_BASH = _BASH is not None
 _HAS_JQ = shutil.which("jq") is not None
 
 
 def _run_guard(command: str) -> tuple[int, dict | None]:
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
     done = subprocess.run(
-        ["bash", str(PLUGIN_ROOT / "hooks" / "pre-bash-git-guard.sh")],
+        [_BASH, str(PLUGIN_ROOT / "hooks" / "pre-bash-git-guard.sh")],
         input=payload,
         capture_output=True,
         text=True,
