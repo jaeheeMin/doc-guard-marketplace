@@ -136,6 +136,10 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 스켈레톤에 추가해, 형식에 안 맞는 기록을 파일명 규칙과 필수 절 규칙이
 위반으로 잡는다.
 
+**`/harness:prd` Skill 을 추가했다(#44).** PRD 틀(`templates/harness/PRD.md`)과
+그 필수 절을 강제하는 `rules/ssot.yaml` 을 스켈레톤에 추가해, PRD 를 새로
+쓰거나 고칠 때 요구사항 목록과 변경 근거를 Audit 기록으로 남기게 했다.
+
 ### 아직 정하지 않은 것
 
 정한 것과 정하지 않은 것을 섞지 않기 위해 남겨 둔다.
@@ -190,6 +194,7 @@ Skill 과 이를 강제하는 훅은 이 저장소가 직접 갖고 있지 않�
 | `/harness:deliver` | 작업을 마칠 때. 커밋과 기준 브랜치 동기화와 푸시와 PR 생성까지 한 번에 처리한다 |
 | `/harness:wrapup` | 세션에서 다 끝내지 못한 작업을 이슈로 남길 때 |
 | `/harness:scaffold` | Project Repository 에서 검사기가 기대하는 표준 구조를 만들 때 |
+| `/harness:prd` | Project Repository 에서 PRD 를 만들거나 고칠 때 |
 
 `/release` 와 `/intake` 는 이 저장소에 두지 않았다. 릴리즈를 발행할 때가
 되거나 외부 디렉터리를 적재할 일이 생기면 `jaeheeMin/public-cloud` 에서
