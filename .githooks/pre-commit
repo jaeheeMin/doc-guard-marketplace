@@ -19,7 +19,7 @@ if [ -z "$branch" ]; then
 
   [거부] 어느 브랜치에도 속하지 않은 상태입니다.
 
-  아래로 main 에 돌아간 뒤 /start 로 다시 시작하십시오.
+  아래로 main 에 돌아간 뒤 /harness:start 로 다시 시작하십시오.
 
       git switch main
 
@@ -32,7 +32,7 @@ if [ "$branch" = "main" ]; then
 
   [거부] main 브랜치에는 직접 커밋할 수 없습니다.
 
-  Claude Code 를 쓰고 있다면 /start 를 실행하십시오. 이슈를 만들고
+  Claude Code 를 쓰고 있다면 /harness:start 를 실행하십시오. 이슈를 만들고
   규칙에 맞는 브랜치를 자동으로 만들어 줍니다.
 
   터미널에서 직접 하려면 아래처럼 브랜치를 만드십시오.

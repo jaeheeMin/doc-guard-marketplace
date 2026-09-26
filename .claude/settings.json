@@ -1,35 +1,13 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session-start-sync.sh\""
-          }
-        ]
+  "enabledPlugins": {
+    "harness@blueward-harness": true
+  },
+  "extraKnownMarketplaces": {
+    "blueward-harness": {
+      "source": {
+        "source": "github",
+        "repo": "jaeheeMin/blueward-harness"
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/stop-deliver.sh\""
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash|PowerShell",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-bash-git-guard.sh\""
-          }
-        ]
-      }
-    ]
+    }
   }
 }
