@@ -1,0 +1,5 @@
+# PRD 는 docs/ssot/ 에 하나만 두고 이름을 고정한다.
+관할: "docs/ssot/**"
+규칙:
+  - 종류: filename
+    패턴: '^PRD\.md$'
