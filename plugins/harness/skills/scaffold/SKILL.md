@@ -41,16 +41,23 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
 CLAUDE.md                          이 저장소가 무엇인지, 디렉터리와 규칙 요약
 docs/ssot/PRD.md                   요구사항의 정본(SSOT). 아직 빈 스텁
 templates/README.md                고객사 템플릿 원본을 두는 자리
+templates/harness/audit-change.md  변경 기록 템플릿
+templates/harness/audit-ledger.md  진행 원장 템플릿
 rules/README.md                    규칙 작성법과 예시
 rules/ssot.yaml                    PRD 파일명을 고정하는 실제 동작 규칙
+rules/audit-changes.yaml           변경 기록의 파일명·필수 절 규칙
+rules/audit-ledger.yaml            진행 원장의 파일명·필수 절 규칙
 conventions/README.md              이 프로젝트에서만 통하는 Convention
-audit/README.md                    Audit log·Program Ledger 가 쌓일 자리
+audit/README.md                    Audit 두 종류(변경 기록·진행 원장) 설명
+audit/changes/.gitkeep             변경 기록이 쌓일 자리
+audit/ledger/.gitkeep              진행 원장이 쌓일 자리
 env/README.md                      환경별 접속 URL(Credential 은 안 둠)
 .github/workflows/doc-guard.yml    PR·main 커밋마다 doc-guard 를 부르는 워크플로
 ```
 
-`rules/ssot.yaml` 을 지우지 않는다. `rules/` 에 `*.yaml` 이 하나도 없으면
-모든 검사가 설정 오류로 실패한다.
+`rules/ssot.yaml`, `rules/audit-changes.yaml`, `rules/audit-ledger.yaml` 을
+지우지 않는다. `rules/` 에 `*.yaml` 이 하나도 없으면 모든 검사가 설정 오류로
+실패한다.
 
 ## 안전장치
 
