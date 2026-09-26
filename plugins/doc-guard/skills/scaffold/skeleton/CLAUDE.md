@@ -1,0 +1,27 @@
+# {{client}} {{project}}
+
+이 저장소는 {{date}} 에 blueward-harness 플러그인의 `/scaffold` 로 만든
+Project Repository 다. 이 프로젝트의 최종 산출물과, 그 산출물을 검사할
+기준(템플릿과 규칙)을 함께 든다.
+
+## 디렉터리
+
+| 경로 | 무엇을 두나 |
+|---|---|
+| `docs/ssot/PRD.md` | 이 프로젝트의 SSOT. 요구사항의 정본 |
+| `templates/` | 고객사에게 받은 템플릿 원본 |
+| `rules/` | 검사 규칙(`*.yaml`). 문서가 템플릿을 따르는지 이 규칙으로 본다 |
+| `conventions/` | 이 프로젝트에서만 통하는 Convention |
+| `audit/` | Audit log 와 Program Ledger |
+| `env/` | 환경별 접속 URL |
+| `.github/workflows/doc-guard.yml` | PR 과 main 커밋마다 doc-guard 검사를 돌리는 워크플로 |
+
+## 규칙
+
+- 산출물은 `docs/` 아래 두고 버전은 파일명에 남긴다(`개발사양서_v1.0.xlsx`).
+  이전 버전도 지우지 않는다.
+- 고객사 템플릿과 검사 규칙은 이 저장소 안 `templates/` 와 `rules/` 에 둔다.
+- `docs/ssot/PRD.md` 가 SSOT 이고, Convention 과 Template 은 링크로만
+  참조한다.
+- 비밀번호 같은 Credential 은 저장소에 두지 않는다.
+- 검사를 못 했다는 결과를 통과로 보지 않는다.

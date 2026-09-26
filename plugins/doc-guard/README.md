@@ -9,6 +9,10 @@ plugins/doc-guard/
   hooks/
     hooks.json                 Write/Edit 직전에 아래 스크립트를 부르도록 선언
     pre_write_guard.py         회사 폴더를 찾고 엔진을 불러 막을지 정한다
+  skills/scaffold/
+    SKILL.md                   Project Repository 표준 구조를 만드는 절차
+    scaffold.py                실제로 파일을 복사·치환하는 스크립트
+    skeleton/                  만들어질 구조의 원본
 ```
 
 플러그인은 껍데기다. 실제 검사는 저장소 루트의 `checker/` 엔진이 한다.
@@ -65,3 +69,17 @@ Claude 가 문서를 저장하려 한다
 
 **그래서 이 훅만으로는 절반이다.** 나머지는 GitHub Actions 가 커밋 시점에 잡는다.
 문서 저장소 쪽에서 `.github/workflows/doc-guard.yml` 로 재사용 워크플로를 부른다.
+
+## Skill: /scaffold
+
+새 고객사 Project Repository 를 처음 만들었을 때, 검사기가 기대하는 표준
+구조 — 저장소 루트의 `templates/` 와 `rules/`, `docs/ssot/PRD.md`,
+`conventions/`, `audit/`, `env/`, 그리고 PR·main 커밋마다 doc-guard 를
+부르는 `.github/workflows/doc-guard.yml` — 를 한 번에 만들어 준다.
+
+고객사 이름과 프로젝트 이름을 받아 스켈레톤 파일을 저장소 루트에 복사하고,
+파일 안의 자리표시자를 채운다. 이미 있는 파일은 절대 덮어쓰지 않고
+건너뛴다. 자세한 절차는 `skills/scaffold/SKILL.md` 를 읽는다.
+
+플러그인 스킬은 이름 앞에 플러그인 이름이 붙으므로, 실제로는
+`/doc-guard:scaffold` 로 나타날 수 있다.
