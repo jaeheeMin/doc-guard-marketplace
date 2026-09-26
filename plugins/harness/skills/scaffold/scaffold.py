@@ -1,6 +1,6 @@
 """Project Repository 표준 구조를 만든다.
 
-`/scaffold` Skill 이 이 스크립트를 부른다. 스킬이 아니라 스크립트로 둔 이유는
+`/harness:scaffold` Skill 이 이 스크립트를 부른다. 스킬이 아니라 스크립트로 둔 이유는
 결정론적인 파일 복사·치환에는 모델 판단이 필요 없고, 테스트(`checker/tests/
 test_scaffold.py`)가 사람 손 없이 반복 실행할 수 있어야 하기 때문이다.
 

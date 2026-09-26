@@ -3,7 +3,7 @@ name: deliver
 description: 작업을 마무리한다. 커밋하고 원격과 동기화하고 푸시하고 PR 을 만들거나 갱신하는 것을 한 번에 수행한다. 사용자가 "다 했어", "커밋하고 푸시해줘", "PR 올려줘" 라고 하거나 세션을 마칠 때 사용한다.
 ---
 
-# /deliver
+# /harness:deliver
 
 커밋과 원격 동기화와 푸시와 PR 생성까지 한 번에 수행하는 스킬이다.
 `<이 스킬의 base directory>` 는 이 스킬이 로드될 때 위에 표시되는 경로다.
@@ -13,7 +13,7 @@ description: 작업을 마무리한다. 커밋하고 원격과 동기화하고 �
 1. 컨텍스트를 먼저 모은다. 현재 브랜치와 `git status --short` 와
    `git diff HEAD --stat` 와 `git diff HEAD` 와 최근 커밋 세 건을 읽는다.
    최근 커밋은 이 저장소의 메시지 문체를 맞추기 위한 참고 자료다.
-2. 현재 브랜치가 main 이면 거부하고 `/start` 를 안내한다. 변경이 없으면 그
+2. 현재 브랜치가 main 이면 거부하고 `/harness:start` 를 안내한다. 변경이 없으면 그
    사실을 알리고 멈춘다.
 3. 기준 브랜치를 `git fetch origin {base}` 로 가져오고,
    `git rev-list HEAD..origin/{base} --count` 로 새 커밋이 있는지 확인하고,

@@ -24,11 +24,11 @@ PR 은 작성자 본인이 아닌 사람이 한 번 이상 읽은 뒤에 병합�
 
 | 작업 | 스킬 |
 |---|---|
-| 브랜치 생성 | `/start` |
-| 커밋 | `/deliver` |
-| 푸시 | `/deliver` |
-| PR 생성 | `/deliver` |
-| 이슈 등록 | `/start`, `/wrapup` |
+| 브랜치 생성 | `/harness:start` |
+| 커밋 | `/harness:deliver` |
+| 푸시 | `/harness:deliver` |
+| PR 생성 | `/harness:deliver` |
+| 이슈 등록 | `/harness:start`, `/harness:wrapup` |
 | 릴리즈 발행 | `/release` (아래 참조) |
 
 이 작업들은 저장소의 이력과 다른 참여자의 작업에 직접 영향을 주기 때문에,

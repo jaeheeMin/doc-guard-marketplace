@@ -98,19 +98,19 @@ sub="$(git_subcommand "$cmd")"
 #    시작하는 토큰 안에 f 가 있으면 강제로 본다. --force-with-lease 는 붙임표
 #    둘로 시작하고 --force 뒤에 공백이 오지 않아 이 패턴에 걸리지 않는다.
 if [ "$sub" = "push" ] && [[ "$cmd" =~ (^|[[:space:]])(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]]|$) ]]; then
-  deny "git push --force 는 이 저장소에서 금지되어 있습니다. 리베이스로 이력이 바뀐 경우에는 --force-with-lease 를 쓰고, 그 절차는 /deliver 가 수행합니다."
+  deny "git push --force 는 이 저장소에서 금지되어 있습니다. 리베이스로 이력이 바뀐 경우에는 --force-with-lease 를 쓰고, 그 절차는 /harness:deliver 가 수행합니다."
 fi
 
 # 2) main 에서의 커밋도 선언 접두어와 무관하게 거부한다. 브랜치 규칙은
-#    /deliver 의 절차가 아니라 이 저장소의 전제이기 때문이다.
+#    /harness:deliver 의 절차가 아니라 이 저장소의 전제이기 때문이다.
 if [ "$sub" = "commit" ]; then
   branch="$(git symbolic-ref --short -q HEAD || echo 알수없음)"
   if [ "$branch" = "main" ]; then
-    deny "main 브랜치에는 직접 커밋할 수 없습니다. /start 를 실행해 이슈를 만들고 규칙에 맞는 브랜치에서 작업하십시오."
+    deny "main 브랜치에는 직접 커밋할 수 없습니다. /harness:start 를 실행해 이슈를 만들고 규칙에 맞는 브랜치에서 작업하십시오."
   fi
 fi
 
-# 3) /deliver 스킬이 절차를 따르고 있다는 선언이면 여기서 통과시킨다.
+# 3) /harness:deliver 스킬이 절차를 따르고 있다는 선언이면 여기서 통과시킨다.
 #    위의 두 검사를 지난 뒤라 강제 푸시와 main 커밋은 이미 걸러져 있다.
 case "$cmd" in
   DELIVER=1*)
@@ -120,7 +120,7 @@ esac
 
 # 4) 스킬을 거치지 않은 푸시를 거부한다.
 if [ "$sub" = "push" ]; then
-  deny "푸시는 /deliver 스킬이 수행합니다. /deliver 는 커밋과 fetch 와 rebase 와 푸시와 PR 생성을 한 번에 처리합니다. 스킬 절차를 따르는 중이라면 명령 앞에 DELIVER=1 을 붙이십시오."
+  deny "푸시는 /harness:deliver 스킬이 수행합니다. /harness:deliver 는 커밋과 fetch 와 rebase 와 푸시와 PR 생성을 한 번에 처리합니다. 스킬 절차를 따르는 중이라면 명령 앞에 DELIVER=1 을 붙이십시오."
 fi
 
 exit 0

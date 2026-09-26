@@ -2,7 +2,7 @@
 
 고객사 Project Repository 에 설치해 쓰는 Blueward 하네스다. 새 저장소의 표준
 구조를 만들고, 문서가 템플릿을 따르는지 검사하고(doc-guard), 협업 규칙과
-`/start` · `/deliver` · `/wrapup` Skill 을 한 번에 제공한다.
+`/harness:start` · `/harness:deliver` · `/harness:wrapup` Skill 을 한 번에 제공한다.
 
 ```
 plugins/harness/
@@ -14,10 +14,10 @@ plugins/harness/
     session-start-sync.sh      세션 시작 때 원격과 동기화하고 남은 경고를 전한다
     stop-deliver.sh            세션 종료 때 커밋 안 된 변경을 알린다
   skills/
-    start/SKILL.md             /start — 이슈와 브랜치 생성
-    deliver/SKILL.md           /deliver — 커밋·동기화·푸시·PR
-    wrapup/SKILL.md            /wrapup — 남은 작업의 이슈화
-    scaffold/                  /scaffold — Project Repository 표준 구조 생성
+    start/SKILL.md             /harness:start — 이슈와 브랜치 생성
+    deliver/SKILL.md           /harness:deliver — 커밋·동기화·푸시·PR
+    wrapup/SKILL.md            /harness:wrapup — 남은 작업의 이슈화
+    scaffold/                  /harness:scaffold — Project Repository 표준 구조 생성
   rules/                       위 Skill 이 참조하는 협업 규칙 5개
 ```
 
@@ -68,7 +68,7 @@ plugins/harness/
 | `pre_write_guard.py` | `PreToolUse` (Write\|Edit) | 문서가 템플릿을 벗어나면 저장을 막는다(doc-guard) |
 | `pre-bash-git-guard.sh` | `PreToolUse` (Bash\|PowerShell) | 스킬을 거치지 않은 `git push` 와 main 직접 커밋을 막는다 |
 | `session-start-sync.sh` | `SessionStart` | 원격과 동기화하고 지난 세션에서 남은 경고를 전한다 |
-| `stop-deliver.sh` | `Stop` | 커밋되지 않은 변경이 남았으면 `/deliver` 를 안내한다 |
+| `stop-deliver.sh` | `Stop` | 커밋되지 않은 변경이 남았으면 `/harness:deliver` 를 안내한다 |
 
 ### 규칙 5개
 

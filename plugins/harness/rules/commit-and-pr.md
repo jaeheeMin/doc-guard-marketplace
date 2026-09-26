@@ -58,13 +58,13 @@ PR 본문은 다음 절로 구성한다.
 PR 에는 항상 담당자(assignee)를 지정한다. 담당자가 없는 PR 은 누가 리뷰를
 맡아야 하는지 알 수 없다.
 
-## `/deliver` 가 이 절차 전체를 수행한다
+## `/harness:deliver` 가 이 절차 전체를 수행한다
 
 커밋, 기준 브랜치와의 동기화, 푸시, PR 생성까지 이 문서에 적은 절차 전체를
-수행하는 정상 경로는 `/deliver` 다.
+수행하는 정상 경로는 `/harness:deliver` 다.
 
 Claude Code 안에서 스킬을 거치지 않고 직접 실행하는 `git push` 는 harness
-플러그인의 push 가드 훅(`pre-bash-git-guard.sh`)이 거부한다. `/deliver` 는
+플러그인의 push 가드 훅(`pre-bash-git-guard.sh`)이 거부한다. `/harness:deliver` 는
 자신이 이 절차를 따르고 있다는 것을 명령 앞에 `DELIVER=1` 을 붙여 선언하고,
 그 선언이 있어야 맨손 `git push` 거부를 통과한다. **이 선언이 통과시키는
 것은 그 거부뿐이다.** `--force` 와 main 커밋 거부는 `DELIVER=1` 이 있어도

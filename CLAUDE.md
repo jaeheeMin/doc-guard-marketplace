@@ -122,10 +122,11 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 
 **협업 Skill·규칙·훅을 harness Plugin 에 담았다(#37).** `/start`, `/deliver`,
 `/wrapup` Skill 과 공통 규칙 5개, 그것을 강제하는 훅 3개(push 가드, 세션 시작
-동기화, 세션 종료 안내)를 `plugins/harness/` 에 복사해 플러그인 설치만으로도
-쓸 수 있게 했다. 이 저장소 자체가 쓰는 `.claude/skills`, `.claude/hooks`,
-`rules/` 의 옛 사본은 아직 지우지 않았다 — 저장소 쪽 정리와 이 저장소 자신의
-플러그인 자기 설치는 이 작업이 merge 된 뒤 별도 PR 로 한다.
+동기화, 세션 종료 안내)를 `plugins/harness/` 에 옮겼다. **저장소 쪽 정리와 이
+저장소 자신의 플러그인 설치를 마쳤다(#39).** 이 저장소가 쓰던 `.claude/skills`,
+`.claude/hooks`, 루트 `rules/` 의 옛 사본은 지웠고, 이 저장소도 다른
+저장소와 같은 방식으로 `.claude/settings.json` 의 `enabledPlugins` 로
+`harness` 플러그인을 설치해 쓴다.
 
 ### 아직 정하지 않은 것
 
@@ -141,16 +142,17 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 
 ## 규칙 색인
 
-아래 다섯 문서가 이 저장소의 규칙 전문이다. 이 문서는 요약만 담고, 정확한
-내용과 예시는 각 문서를 읽어야 한다.
+아래 다섯 문서가 이 저장소의 규칙 전문이다. `harness` 플러그인에 실려 배포되는
+파일이지만, 이 저장소가 그 플러그인의 원본 저장소라 여기서도 그대로 읽을 수
+있다. 이 문서는 요약만 담고, 정확한 내용과 예시는 각 문서를 읽어야 한다.
 
 | 문서 | 내용 |
 |---|---|
-| `rules/branching.md` | 브랜치 이름 형식, main 직접 커밋·푸시 금지, `/start` 로 브랜치를 만드는 절차 |
-| `rules/commit-and-pr.md` | 커밋 메시지와 PR 제목·본문 형식, 푸시 전 fetch·rebase, `--force` 금지 |
-| `rules/issue-and-release.md` | 이슈 제목·본문·라벨 체계, 이슈 크기 기준, 릴리즈 버전과 노트 형식 |
-| `rules/delegation.md` | 메인 세션과 서브에이전트의 역할 분리, 서브에이전트 모델 고정, 자기 승인 금지 |
-| `rules/governance.md` | 리뷰·병합 방식, 스킬을 반드시 거쳐야 하는 작업 목록, 훅이 막았을 때의 대응 |
+| `plugins/harness/rules/branching.md` | 브랜치 이름 형식, main 직접 커밋·푸시 금지, `/harness:start` 로 브랜치를 만드는 절차 |
+| `plugins/harness/rules/commit-and-pr.md` | 커밋 메시지와 PR 제목·본문 형식, 푸시 전 fetch·rebase, `--force` 금지 |
+| `plugins/harness/rules/issue-and-release.md` | 이슈 제목·본문·라벨 체계, 이슈 크기 기준, 릴리즈 버전과 노트 형식 |
+| `plugins/harness/rules/delegation.md` | 메인 세션과 서브에이전트의 역할 분리, 서브에이전트 모델 고정, 자기 승인 금지 |
+| `plugins/harness/rules/governance.md` | 리뷰·병합 방식, 스킬을 반드시 거쳐야 하는 작업 목록, 훅이 막았을 때의 대응 |
 
 새 파일을 어디에 둘지는 위 "이 저장소는 무엇인가" 절의 디렉터리 설명을 따른다.
 
@@ -158,27 +160,34 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 
 세부는 위 색인을 따라가면 되지만, 아래 세 가지는 항상 지킨다.
 
-1. **main 에는 직접 커밋하지 않는다.** 작업은 항상 `/start` 로 이슈와 브랜치를
-   먼저 만들고 시작한다.
-2. **푸시는 `/deliver` 로 한다.** 스킬을 거치지 않은 맨손 `git push` 는 훅이
-   거부한다.
+1. **main 에는 직접 커밋하지 않는다.** 작업은 항상 `/harness:start` 로 이슈와
+   브랜치를 먼저 만들고 시작한다.
+2. **푸시는 `/harness:deliver` 로 한다.** 스킬을 거치지 않은 맨손 `git push` 는
+   훅이 거부한다.
 3. **조사와 실행은 `sonnet` 서브에이전트에 맡긴다.** 메인 세션은 무엇을
    조사할지 정하고 결과를 판정하며, 실제로 파일을 읽고 명령을 실행하는 부분은
    서브에이전트가 수행한다.
 
 ## 스킬
 
+Skill 과 이를 강제하는 훅은 이 저장소가 직접 갖고 있지 않고 `harness`
+플러그인이 제공한다. 이 저장소는 프로젝트 설정(`.claude/settings.json` 의
+`enabledPlugins`)으로 그 플러그인을 설치해 쓰며, 설치된 플러그인의 Skill 은
+이름 앞에 플러그인 이름이 붙으므로 `/start` 단독으로는 더 이상 존재하지
+않는다.
+
 | 스킬 | 언제 쓰는가 |
 |---|---|
-| `/start` | 새 작업을 시작할 때. 이슈를 만들고 규칙에 맞는 브랜치를 만들어 준다 |
-| `/deliver` | 작업을 마칠 때. 커밋과 기준 브랜치 동기화와 푸시와 PR 생성까지 한 번에 처리한다 |
-| `/wrapup` | 세션에서 다 끝내지 못한 작업을 이슈로 남길 때 |
+| `/harness:start` | 새 작업을 시작할 때. 이슈를 만들고 규칙에 맞는 브랜치를 만들어 준다 |
+| `/harness:deliver` | 작업을 마칠 때. 커밋과 기준 브랜치 동기화와 푸시와 PR 생성까지 한 번에 처리한다 |
+| `/harness:wrapup` | 세션에서 다 끝내지 못한 작업을 이슈로 남길 때 |
+| `/harness:scaffold` | Project Repository 에서 검사기가 기대하는 표준 구조를 만들 때 |
 
 `/release` 와 `/intake` 는 이 저장소에 두지 않았다. 릴리즈를 발행할 때가
 되거나 외부 디렉터리를 적재할 일이 생기면 `jaeheeMin/public-cloud` 에서
 가져온다.
 
-## 세부는 `rules/` 를 읽는다
+## 세부는 `plugins/harness/rules/` 를 읽는다
 
 이 문서는 규칙의 전문을 옮겨 적지 않는다. 위 색인의 각 문서가 정본이고, 이
-문서와 어긋나는 부분이 있으면 `rules/` 쪽을 따른다.
+문서와 어긋나는 부분이 있으면 `plugins/harness/rules/` 쪽을 따른다.
