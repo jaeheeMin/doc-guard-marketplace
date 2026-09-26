@@ -44,7 +44,7 @@ Claude 가 문서를 저장하려 한다
 ## 설치
 
 ```
-/plugin marketplace add jaeheeMin/doc-guard-marketplace
+/plugin marketplace add jaeheeMin/blueward-harness
 /plugin install doc-guard
 ```
 
