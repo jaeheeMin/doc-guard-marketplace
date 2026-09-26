@@ -14,10 +14,12 @@ deny() {
 
 if ! command -v jq >/dev/null 2>&1; then
   # 판단할 수 없을 때 통과시키지 않는다. 통과시키면 정확히 이 상황에서
-  # 보호가 사라진다. 다만 검사 대상이 git 명령이므로 그 밖의 명령은 막지 않는다.
+  # 보호가 사라진다. 다만 검사 대상이 git 명령이나 `gh pr merge` 이므로
+  # 그 밖의 명령은 막지 않는다. `gh pr merge` 도 여기 넣은 이유는 아래
+  # PRD 승인 검사가 이 훅 안에서 jq 로 결과를 읽기 때문이다(#49).
   case "$input" in
-    *git*)
-      deny "jq 가 없어 git 명령을 검사하지 못했습니다. 검사할 수 없는 상태로 통과시키지 않습니다. jq 를 설치한 뒤 다시 시도하십시오."
+    *git*|*"pr merge"*)
+      deny "jq 가 없어 git/gh 명령을 검사하지 못했습니다. 검사할 수 없는 상태로 통과시키지 않습니다. jq 를 설치한 뒤 다시 시도하십시오."
       ;;
     *)
       exit 0
@@ -91,6 +93,152 @@ git_subcommand() {
 }
 
 sub="$(git_subcommand "$cmd")"
+
+# 0) gh pr merge 대상 PR 이 PRD(docs/ssot/) 를 바꿨는데 승인이 없으면 거부한다
+#    (#49). 별도 훅 프로세스를 새로 두지 않고 이 훅에 얹는 이유는, 이미
+#    Bash|PowerShell 을 지켜보는 훅이 있는데 같은 이벤트에 두 번째 훅
+#    프로세스를 또 띄우면 같은 명령을 두 번 파싱하고 두 배로 느려지기
+#    때문이다. git 명령이 아니므로 `git_subcommand` 대신 아래에서 따로
+#    본다.
+#
+# gh 는 이 저장소의 GitHub 원격에서 판정 로직(checker.ssot_approval)을
+# `uvx` 로 받아 부른다 — 훅이 검사 엔진을 얻는 방식(#12)과 같다. 판정
+# 불가(네트워크 없음, gh 없음, uvx 없음, 예상 못한 종료코드)는 통과가
+# 아니라 거부로 답한다(CLAUDE.md 원칙 7) — merge 를 막는 것이 이 훅의
+# 목적이므로, 모른다는 것을 통과로 답하면 그 순간 보호가 사라진다.
+gh_is_pr_merge() {
+  set -f
+  stage=0  # 0: gh 를 못 찾음, 1: gh 뒤 pr 을 기다림, 2: pr 뒤 merge 를 기다림
+  for tok in $1; do
+    tok="${tok#\"}"; tok="${tok%\"}"
+    tok="${tok#\'}"; tok="${tok%\'}"
+    if [ "$stage" -eq 0 ]; then
+      base="${tok##*/}"
+      base="${base##*\\}"
+      base="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
+      case "$base" in *.exe) base="${base%.exe}" ;; esac
+      case "$base" in gh) stage=1 ;; esac
+      continue
+    fi
+    case "$tok" in
+      -*) continue ;;
+    esac
+    if [ "$stage" -eq 1 ]; then
+      if [ "$tok" = "pr" ]; then stage=2; else set +f; return 1; fi
+      continue
+    fi
+    set +f
+    [ "$tok" = "merge" ]
+    return $?
+  done
+  set +f
+  return 1
+}
+
+if gh_is_pr_merge "$cmd"; then
+  repo=""
+  prref=""
+  after_merge=0
+  expect=""
+  set -f
+  for tok in $cmd; do
+    tok="${tok#\"}"; tok="${tok%\"}"
+    tok="${tok#\'}"; tok="${tok%\'}"
+    if [ -n "$expect" ]; then
+      case "$expect" in repo) repo="$tok" ;; esac
+      expect=""
+      continue
+    fi
+    if [ "$after_merge" -eq 0 ]; then
+      case "$tok" in merge) after_merge=1 ;; esac
+      continue
+    fi
+    case "$tok" in
+      -R|--repo) expect=repo ;;
+      --repo=*) repo="${tok#--repo=}" ;;
+      -R=*) repo="${tok#-R=}" ;;
+      -*) : ;;
+      *) [ -z "$prref" ] && prref="$tok" ;;
+    esac
+  done
+  set +f
+
+  # URL 형태(.../pull/123)면 번호와 저장소를 URL 에서 바로 뽑는다.
+  case "$prref" in
+    */pull/*)
+      pr_number="${prref##*/pull/}"
+      pr_number="${pr_number%%/*}"
+      if [ -z "$repo" ]; then
+        repo="$(printf '%s' "$prref" | sed -n 's#^https\{0,1\}://github\.com/\([^/]*/[^/]*\)/pull/.*#\1#p')"
+      fi
+      ;;
+    ''|*[!0-9]*)
+      pr_number=""
+      ;;
+    *)
+      pr_number="$prref"
+      ;;
+  esac
+
+  if ! command -v gh >/dev/null 2>&1; then
+    deny "gh 가 없어 이 PR 이 PRD(docs/ssot) 를 바꿨는지, 승인이 있는지 확인할 수 없습니다. 확인되지 않는 상태로 merge 를 허용하지 않습니다."
+  fi
+
+  # 번호를 못 얻었으면(현재 브랜치나 브랜치 이름으로 지정한 경우) gh pr view
+  # 로 같은 대상을 다시 물어 번호를 얻는다. gh pr view 는 gh pr merge 와
+  # 같은 인자 형태(번호·URL·브랜치·빈 값=현재 브랜치)를 받아들인다.
+  if [ -z "$pr_number" ]; then
+    if [ -n "$prref" ] && [ -n "$repo" ]; then
+      pr_number="$(gh pr view "$prref" -R "$repo" --json number -q .number 2>/dev/null)" || true
+    elif [ -n "$prref" ]; then
+      pr_number="$(gh pr view "$prref" --json number -q .number 2>/dev/null)" || true
+    elif [ -n "$repo" ]; then
+      pr_number="$(gh pr view -R "$repo" --json number -q .number 2>/dev/null)" || true
+    else
+      pr_number="$(gh pr view --json number -q .number 2>/dev/null)" || true
+    fi
+  fi
+
+  if [ -z "$repo" ]; then
+    repo="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null)" || true
+  fi
+
+  if [ -z "$repo" ] || [ -z "$pr_number" ]; then
+    deny "gh pr merge 의 대상 PR 을 확인하지 못해 PRD 승인 여부를 판정할 수 없습니다. 확인되지 않는 상태로 merge 를 허용하지 않습니다."
+  fi
+
+  engine="${DOC_GUARD_ENGINE:-git+https://github.com/jaeheeMin/blueward-harness@main}"
+  if ! command -v uvx >/dev/null 2>&1; then
+    deny "uvx 가 없어 PRD 승인 여부를 확인하지 못했습니다. 확인되지 않는 상태로 merge 를 허용하지 않습니다."
+  fi
+
+  set +e
+  ssot_out="$(uvx --from "$engine" python -m checker.ssot_approval check-pr --repo "$repo" --pr "$pr_number" 2>&1)"
+  ssot_rc=$?
+  set -e
+
+  # uvx 가 판정 로직을 아예 못 받았거나(#12 와 같은 사정) 못 돌렸으면, 그
+  # 출력은 checker.ssot_approval 이 약속한 JSON 이 아니라 uvx/python 이 낸
+  # 원문 오류다. 그런 상태에서는 uvx 자신의 종료코드가 우연히 0 이나 1 과
+  # 같아도 그것을 판정 결과로 읽지 않는다 — 판정 로직이 실행조차 못 됐다는
+  # 뜻이기 때문이다.
+  ssot_json_ok=0
+  if printf '%s' "$ssot_out" | jq -e . >/dev/null 2>&1; then
+    ssot_json_ok=1
+  fi
+
+  if [ "$ssot_json_ok" -eq 1 ] && [ "$ssot_rc" -eq 0 ]; then
+    : # PRD 를 안 바꿨거나 이미 승인됐다. 통과시키고 나머지 검사를 계속한다.
+  elif [ "$ssot_json_ok" -eq 1 ] && [ "$ssot_rc" -eq 1 ]; then
+    reason="$(printf '%s' "$ssot_out" | jq -r '.reason // empty' 2>/dev/null)" || true
+    deny "PRD(docs/ssot) 를 바꾼 PR #$pr_number 인데 작성자가 아닌 승인자의 Approve 가 없어 merge 를 막습니다. 사유: $reason"
+  else
+    # $ssot_out 은 uvx/gh 가 낸 원문 오류일 수 있어 큰따옴표·역슬래시가 섞여
+    # 있을 수 있다. deny() 가 그대로 JSON 에 끼워 넣으므로 여기서 지운다.
+    detail="$(printf '%s' "$ssot_out" | tr -d '"\\' | tr '\n' ' ' | cut -c1-300)"
+    deny "PR #$pr_number 의 PRD 승인 여부를 확인하지 못해 merge 를 막습니다(종료코드 $ssot_rc). 확인되지 않는 상태로 통과시키지 않습니다. 자세히: $detail"
+  fi
+fi
 
 # 1) 되돌릴 수 없는 강제 푸시는 어떤 경우에도 거부한다. 선언 접두어보다 먼저
 #    검사하는 이유는, 접두어가 이 동작까지 열어 주는 문이 되지 않게 하기

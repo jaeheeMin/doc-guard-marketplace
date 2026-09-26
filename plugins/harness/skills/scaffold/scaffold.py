@@ -34,21 +34,35 @@ def _dest_relative(src_relative: Path) -> Path:
     return Path(*parts)
 
 
-def _render(text: str, client: str, project: str, today: str) -> str:
+def _render(text: str, client: str, project: str, today: str, ssot_approvers: list[str]) -> str:
+    # 승인자가 없으면 빈 문자열로 치환한다 — `.github/ssot-approvers` 는 그러면
+    # 주석과 빈 줄만 남고, 그것을 `checker.ssot_approval.load_approvers` 가
+    # "누구든 승인할 수 있다" 로 읽는다.
+    approvers_block = "\n".join(ssot_approvers)
     return (
         text.replace("{{client}}", client)
         .replace("{{project}}", project)
         .replace("{{date}}", today)
+        .replace("{{ssot_approvers}}", approvers_block)
     )
 
 
-def scaffold(root: Path, client: str, project: str, dry_run: bool) -> dict:
+def scaffold(
+    root: Path,
+    client: str,
+    project: str,
+    dry_run: bool,
+    ssot_approvers: list[str] | None = None,
+) -> dict:
     """`root` 아래에 표준 구조를 만들고 결과를 사전으로 돌려준다.
 
     기존 파일은 건드리지 않는다. `dry_run` 이면 만들 목록만 셈하고 아무것도
-    쓰지 않는다.
+    쓰지 않는다. `ssot_approvers` 는 `.github/ssot-approvers` 에 한 줄씩
+    적어 넣을 GitHub 아이디 목록이다 — 비워 두면(기본값) 그 파일은 누구든
+    승인할 수 있다는 뜻으로 남는다.
     """
     today = date.today().isoformat()
+    approvers = list(ssot_approvers or [])
     created: list[str] = []
     skipped: list[str] = []
 
@@ -66,7 +80,7 @@ def scaffold(root: Path, client: str, project: str, dry_run: bool) -> dict:
         if not dry_run:
             dest.parent.mkdir(parents=True, exist_ok=True)
             text = src.read_text(encoding="utf-8")
-            text = _render(text, client, project, today)
+            text = _render(text, client, project, today, approvers)
             # newline="\n" 으로 못 박는다. Windows 에서 텍스트 모드로 그냥 쓰면
             # LF 가 CRLF 로 바뀌어, 같은 스켈레톤인데 플랫폼마다 다른 바이트가
             # 나온다.
@@ -99,6 +113,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="만들 목록만 보여주고 실제로 쓰지 않는다"
     )
+    parser.add_argument(
+        "--ssot-approver",
+        action="append",
+        dest="ssot_approvers",
+        default=None,
+        metavar="GITHUB_ID",
+        help="docs/ssot(PRD) 변경 PR 을 승인할 수 있는 GitHub 아이디. 여러 번 줄 수 있다. "
+        "생략하면 .github/ssot-approvers 를 비워 두고, 그러면 작성자가 아닌 누구의 "
+        "승인이든 인정한다",
+    )
     args = parser.parse_args(argv)
 
     root = (args.root or Path(".")).resolve()
@@ -106,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{root} 는 디렉터리가 아니다", file=sys.stderr)
         return 2
 
-    result = scaffold(root, args.client, args.project, args.dry_run)
+    result = scaffold(root, args.client, args.project, args.dry_run, args.ssot_approvers)
     json.dump(result, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

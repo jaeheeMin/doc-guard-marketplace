@@ -1,0 +1,18 @@
+# 이 저장소(Project Repository)의 PR 과 main 커밋마다 docs/ssot(PRD) 변경의
+# 승인 여부를 검사한다(#49). 판정 로직은 blueward-harness 저장소에서 그때그때
+# 내려받아 쓴다 — doc-guard.yml 과 같은 사정이다.
+name: ssot-approval
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+  push:
+    branches: [main]
+jobs:
+  ssot-approval:
+    uses: jaeheeMin/blueward-harness/.github/workflows/ssot-approval.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write

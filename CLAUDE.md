@@ -146,6 +146,23 @@ spec.md`)과 `rules/spec.yaml` 을 스켈레톤에 추가해, PRD 의 REQ 를 �
 했다. `/harness:deliver` 도 관련 개발 건을 찾아 PR 에 진행 원장 링크를 넣고
 PR 을 만든 뒤 원장 상태를 갱신하게 했다.
 
+**무료 요금제에서 PRD 변경 PR 의 승인을 검사하고 기록한다(#49).** Project
+Repository 는 개인 무료 계정의 비공개 저장소라 브랜치 보호·CODEOWNERS 를 쓸
+수 없어, merge 자체를 서버 쪽에서 막을 방법이 없다. 그래서 "막는다" 대신
+"승인 없이 넘어가면 반드시 드러나고 기록에 남는다" 를 세 겹으로 쌓았다 —
+재사용 워크플로 `.github/workflows/ssot-approval.yml` 이 PR 마다 승인을
+검사해 실패시키고, 같은 워크플로가 main 에 push(=merge)될 때마다 다시
+판정해 승인 없이 들어온 것을 이슈로 열고, `pre-bash-git-guard.sh` 훅이
+`gh pr merge` 자체를 가로채 미승인 PR 의 merge 를 거부한다. 판정 로직
+(`checker/ssot_approval.py`)은 셋이 공유하고, 훅은 `uvx` 로 `python -m
+checker.ssot_approval` 을 불러 GitHub Actions 와 같은 판정을 쓴다(#12 와
+같은 사정). **한계** — 이 셋 중 어느 것도 GitHub 화면의 merge 버튼 자체를
+잠그지 못하므로, PR 검사 실패를 무시하고 merge 하거나 훅이 없는 곳에서
+merge 하면 그대로 넘어간다. 그런 경우에도 merge 뒤 감지가 이슈를 열어
+드러내는 것이 마지막 안전망이고, 승인자 본인이 형식만 갖춰 부실하게
+승인하는 것은 이 검사가 가려내지 못한다 — 그것은 사람의 검토가 할 몫으로
+남는다.
+
 ### 아직 정하지 않은 것
 
 정한 것과 정하지 않은 것을 섞지 않기 위해 남겨 둔다.

@@ -149,14 +149,17 @@ _HAS_BASH = _BASH is not None
 _HAS_JQ = shutil.which("jq") is not None
 
 
-def _run_guard(command: str) -> tuple[int, dict | None]:
+def _run_guard(command: str, env: dict | None = None) -> tuple[int, dict | None]:
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    full_env = {**os.environ, **(env or {})}
     done = subprocess.run(
         [_BASH, str(PLUGIN_ROOT / "hooks" / "pre-bash-git-guard.sh")],
         input=payload,
         capture_output=True,
         text=True,
         encoding="utf-8",
+        env=full_env,
+        timeout=180,
     )
     out = json.loads(done.stdout) if done.stdout.strip() else None
     return done.returncode, out
@@ -175,5 +178,43 @@ def test_선언_없는_push_는_막는다():
 @pytest.mark.skipif(not _HAS_JQ, reason="jq 가 없으면 훅이 모든 git 명령을 거부한다")
 def test_DELIVER_선언이_있으면_통과시킨다():
     code, out = _run_guard("DELIVER=1 git push -u origin HEAD")
+    assert code == 0
+    assert out is None
+
+
+# --- gh pr merge 가드(#49) ---------------------------------------------------
+#
+# 여기서는 실제 gh api 를 부르지 않는다(네트워크 필요). PR 번호와 저장소를
+# 명령 자체에서 뽑을 수 있는 형태(`-R owner/repo` + 숫자 PR)로 줘서 `gh pr
+# view` 호출 없이 곧장 판정 로직 호출로 넘어가게 하고, `DOC_GUARD_ENGINE` 을
+# 존재하지 않는 경로로 줘 판정 로직 자체를 받지 못하게 만든다. CLAUDE.md
+# 원칙 7 — 판정 불가는 통과가 아니라 거부다.
+
+_HAS_UVX = shutil.which("uvx") is not None
+_HAS_GH = shutil.which("gh") is not None
+
+
+@pytest.mark.skipif(not _HAS_BASH, reason="bash 가 없으면 훅을 실행해 볼 수 없다")
+@pytest.mark.skipif(not _HAS_JQ, reason="jq 가 없으면 훅이 모든 git/gh 명령을 거부한다")
+@pytest.mark.skipif(not _HAS_UVX, reason="uvx 가 없으면 이 경로를 재현할 수 없다")
+@pytest.mark.skipif(not _HAS_GH, reason="gh 가 없으면 이 경로를 재현할 수 없다")
+def test_gh_pr_merge_는_판정_엔진을_못_받으면_거부한다(tmp_path):
+    missing_engine = str(tmp_path / "존재하지-않는-엔진-경로")
+    code, out = _run_guard(
+        "gh pr merge 123 -R owner/repo",
+        env={"DOC_GUARD_ENGINE": missing_engine},
+    )
+    assert code == 0
+    assert out is not None
+    assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "확인되지 않는 상태로 통과시키지 않습니다" in reason or "확인하지 못해" in reason
+
+
+@pytest.mark.skipif(not _HAS_BASH, reason="bash 가 없으면 훅을 실행해 볼 수 없다")
+@pytest.mark.skipif(not _HAS_JQ, reason="jq 가 없으면 훅이 모든 git/gh 명령을 거부한다")
+def test_gh_pr_가_아닌_명령은_영향을_받지_않는다():
+    """`gh` 로 시작하지만 `pr merge` 가 아닌 명령은 이 검사를 타지 않는다."""
+    code, out = _run_guard("gh pr view 123 -R owner/repo")
     assert code == 0
     assert out is None

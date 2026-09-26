@@ -1,0 +1,203 @@
+# Project Repository 가 가져다 쓰는 재사용 워크플로(#49).
+#
+# docs/ssot/ (PRD) 를 바꾼 PR 은 작성자가 아닌 사람의 Approve 가 있어야 한다.
+# Project Repository 는 개인 무료 계정의 비공개 저장소라 브랜치 보호·ruleset·
+# CODEOWNERS 를 강제할 수 없다(public-cloud 에서 403 확인) — 무료 요금제는
+# 쓰기 권한자가 화면에서 그냥 merge 하는 것을 막지 못한다. 그래서 이 워크플로는
+# 두 겹으로 답한다.
+#
+#   check         PR 이 열리거나 리뷰가 달릴 때마다 판정하고, 승인이 없으면
+#                 job 을 실패시켜 PR 화면에 눈에 띄게 드러낸다. 그래도 merge
+#                 자체를 막지는 못한다 — 그것이 이 단계의 한계다.
+#   after-merge   main 에 push 될 때마다(=merge 되었을 때) 다시 판정해, 승인
+#                 없이 들어온 것이 있으면 이슈를 연다. merge 를 막지 못하는
+#                 대신 반드시 드러나고 기록에 남게 하는 마지막 안전망이다.
+#
+# 판정 로직(`checker.ssot_approval`)은 훅(`gh pr merge` 거부)과 같다 — 세
+# 진입점이 같은 코드로 같은 판정을 내려야 "승인됐다" 의 의미가 갈라지지
+# 않는다.
+#
+# 판정 불가(네트워크, gh api 오류 등)는 통과도 위반도 아니다(CLAUDE.md 원칙
+# 7). `checker.ssot_approval` 이 종료코드 2 로 답하면 이 워크플로도 실패로
+# 답하고, 그것이 "PRD 가 잘못됐다" 가 아니라 "검사를 못 했다" 라고 분명히
+# 밝힌다.
+#
+# 문서 저장소 쪽에서는 이렇게 부른다. 이 워크플로 자체는 권한을 선언하지
+# 않으므로(재사용 워크플로 관행) 부르는 쪽이 아래를 명시해야 한다.
+#
+#   jobs:
+#     ssot-approval:
+#       uses: jaeheeMin/blueward-harness/.github/workflows/ssot-approval.yml@main
+#       permissions:
+#         contents: read
+#         pull-requests: write
+#         issues: write
+#
+# `pull_request_review` 는 fork 에서 온 PR 에서는 `GITHUB_TOKEN` 권한이 줄어들
+# 수 있지만, 이 워크플로가 도는 저장소는 개인 비공개 Project Repository라
+# fork PR 자체가 생기지 않는다고 본다.
+
+name: ssot-approval
+
+on:
+  workflow_call:
+    inputs:
+      engine-ref:
+        description: 판정 로직을 가져올 blueward-harness 의 ref
+        type: string
+        default: main
+
+jobs:
+  check:
+    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 판정 엔진 가져오기
+        uses: actions/checkout@v4
+        with:
+          repository: jaeheeMin/blueward-harness
+          ref: ${{ inputs.engine-ref }}
+          path: .harness-engine
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 승인 여부 판정
+        id: decide
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          uv run --project .harness-engine python .harness-engine/scripts/ssot_approval.py \
+            check-pr --repo "${{ github.repository }}" --pr "${{ github.event.pull_request.number }}" \
+            > result.json 2> error.txt
+          code=$?
+          set -e
+          echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+          cat error.txt >&2 || true
+          cat result.json || true
+
+      - name: PR 코멘트 갱신
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- ssot-approval -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const code = '${{ steps.decide.outputs.exit-code }}';
+
+            let result = {};
+            try { result = JSON.parse(fs.readFileSync('result.json', 'utf8')); } catch (e) {}
+
+            let body;
+            if (code === '0' && !result.touches_ssot) {
+              // docs/ssot 를 바꾸지 않은 PR 이다. 이 검사와 무관하니 코멘트를
+              // 달지도, 이미 있는 것을 지우지도 않는다 — 무관한 PR 에 코멘트가
+              // 남으면 소음이다.
+              body = null;
+            } else if (code === '0') {
+              body = `${marker}\n## ssot-approval\n\n✅ PRD 변경 승인됨 (${result.reason || ''})`;
+            } else if (code === '1') {
+              body = `${marker}\n## ssot-approval\n\n⚠️ PRD 변경 승인 필요 — docs/ssot 를 바꾼 PR 은 작성자가 아닌 승인자의 Approve 가 있어야 한다. 승인자: \`.github/ssot-approvers\` (없으면 누구든)\n\n사유: ${result.reason || '승인이 없다.'}`;
+            } else {
+              const detail = (result.reason || fs.readFileSync('error.txt', 'utf8')).slice(0, 1000);
+              body = `${marker}\n## ssot-approval\n\n⚠️ PRD 승인 검사 불능 — 이것은 이 PR 의 문제가 아니다. 저장소 관리자에게 알려야 한다.\n\n\`\`\`\n${detail}\n\`\`\``;
+            }
+
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const mine = existing.data.find(c => c.body.includes(marker));
+            if (body === null) {
+              if (mine) await github.rest.issues.deleteComment({ owner, repo, comment_id: mine.id });
+              return;
+            }
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: 판정
+        shell: bash
+        run: |
+          code="${{ steps.decide.outputs.exit-code }}"
+          case "$code" in
+            0)
+              echo "통과"
+              ;;
+            1)
+              echo "::error title=PRD 변경 승인 필요::docs/ssot 를 바꾼 PR 은 작성자가 아닌 승인자의 Approve 가 있어야 한다. PR 코멘트를 본다."
+              exit 1
+              ;;
+            *)
+              echo "::error title=PRD 승인 검사 불능::승인 여부를 확인하지 못했다(종료코드 $code). 저장소 관리자에게 알려야 한다."
+              exit 1
+              ;;
+          esac
+
+  after-merge:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: 판정 엔진 가져오기
+        uses: actions/checkout@v4
+        with:
+          repository: jaeheeMin/blueward-harness
+          ref: ${{ inputs.engine-ref }}
+          path: .harness-engine
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: merge 뒤 승인 여부 확인
+        id: decide
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          uv run --project .harness-engine python .harness-engine/scripts/ssot_approval.py \
+            check-commit --repo "${{ github.repository }}" --sha "${{ github.sha }}" \
+            > result.json 2> error.txt
+          code=$?
+          set -e
+          echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+          cat error.txt >&2 || true
+          cat result.json || true
+
+      - name: 승인 없이 들어왔으면 이슈를 연다
+        if: steps.decide.outputs.exit-code != '0'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha_short="${GITHUB_SHA:0:7}"
+          code="${{ steps.decide.outputs.exit-code }}"
+          if [ "$code" = "1" ]; then
+            title="승인 없이 PRD 변경이 main 에 들어왔다: $sha_short"
+          else
+            title="PRD 승인 확인 불능: $sha_short"
+          fi
+
+          # 같은 커밋에 이미 이슈가 열려 있으면 다시 만들지 않는다.
+          existing_titles="$(gh issue list --state open --json title --jq '.[].title' || true)"
+          if printf '%s\n' "$existing_titles" | grep -qxF "$title"; then
+            echo "이미 이슈가 있다: $title"
+            exit 0
+          fi
+
+          reason="$(jq -r '.reason // "확인 불가"' result.json 2>/dev/null || echo 확인 불가)"
+          prs="$(jq -r '(.prs // []) | map(if type=="object" then "#\(.pr) (\(.url))" else "#\(.)" end) | join(", ")' result.json 2>/dev/null || true)"
+          if [ -z "$prs" ]; then prs="없음(PR 없이 직접 push)"; fi
+
+          body="이 커밋(${GITHUB_SHA})이 승인 없이 main 에 들어왔다.
+          사유: $reason
+          연관된 PR: $prs
+          할 일: 승인자가 사후 검토하고, 필요하면 되돌린다."
+
+          gh issue create --title "$title" --body "$body"

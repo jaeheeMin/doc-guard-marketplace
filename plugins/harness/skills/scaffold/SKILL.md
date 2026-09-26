@@ -10,19 +10,24 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
 위로 올라가며 이 둘을 찾아 "여기가 회사 폴더다" 라고 판단한다.
 
 1. 고객사 이름과 프로젝트 이름이 인자로 주어지지 않았으면, 한 번에 같이
-   물어본다("어느 고객사, 어느 프로젝트인가요?").
+   물어본다("어느 고객사, 어느 프로젝트인가요?"). PRD(`docs/ssot/`) 변경 PR 을
+   승인할 사람의 GitHub 아이디도 물어본다("PRD 변경을 승인할 사람이 있나요?
+   없으면 작성자가 아닌 누구의 승인이든 인정합니다"). 없다고 하면 비워 둔다.
 2. `git rev-parse --show-toplevel` 로 현재 위치가 이 Project Repository 의
    루트인지 확인한다. 스캐폴딩은 항상 저장소 루트에서 실행한다.
 3. 먼저 `--dry-run` 으로 돌려 무엇을 만들고 무엇을 건너뛸지 보여준 뒤, 문제가
-   없으면 `--dry-run` 없이 다시 돌린다.
+   없으면 `--dry-run` 없이 다시 돌린다. 승인자를 여러 명 받았으면
+   `--ssot-approver` 를 그 수만큼 반복한다.
 
    ```bash
    uv run --no-project python "<이 스킬의 base directory>/harness:scaffold.py" \
-     --client "<고객사>" --project "<프로젝트>" --dry-run
+     --client "<고객사>" --project "<프로젝트>" \
+     --ssot-approver "<GitHub 아이디>" --dry-run
    ```
 
    `<이 스킬의 base directory>` 는 이 스킬이 로드될 때 위에 표시되는 경로다.
-   `uv` 가 없으면 `python` 으로 바로 부른다.
+   `uv` 가 없으면 `python` 으로 바로 부른다. `--ssot-approver` 는 생략할 수
+   있다.
 4. 스크립트는 이미 있는 파일을 절대 덮어쓰지 않고 건너뛴다(`skipped`). 만든
    목록(`created`)과 건너뛴 목록을 사용자에게 보고한다.
 5. 다음에 할 일을 안내한다.
@@ -31,7 +36,10 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
      예시 참고).
    - 환경별 접속 URL 을 `env/` 에 적는다.
    - `.github/workflows/doc-guard.yml` 이 이제부터 이 저장소의 PR 과 main
-     커밋마다 검사를 돌린다.
+     커밋마다 검사를 돌린다. `.github/workflows/ssot-approval.yml` 은 같은
+     자리에서 PRD 변경 PR 의 승인 여부를 검사한다(#49).
+   - 승인자를 나중에 추가·변경하려면 `.github/ssot-approvers` 를 직접 고친다.
+     비어 있으면(주석뿐이면) 작성자가 아닌 누구의 승인이든 인정한다.
    - PRD 는 `/harness:prd` Skill 로 만든다. 지금은 `docs/ssot/PRD.md` 가
      빈 스텁으로만 있다.
 
@@ -57,6 +65,8 @@ audit/changes/.gitkeep             변경 기록이 쌓일 자리
 audit/ledger/.gitkeep              진행 원장이 쌓일 자리
 env/README.md                      환경별 접속 URL(Credential 은 안 둠)
 .github/workflows/doc-guard.yml    PR·main 커밋마다 doc-guard 를 부르는 워크플로
+.github/workflows/ssot-approval.yml PR·main 커밋마다 PRD 변경 승인을 검사하는 워크플로(#49)
+.github/ssot-approvers             PRD 변경 PR 을 승인할 수 있는 GitHub 아이디 목록
 ```
 
 `rules/ssot.yaml`, `rules/spec.yaml`, `rules/audit-changes.yaml`,
