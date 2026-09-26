@@ -22,6 +22,14 @@ checker/
                     Actions(`scripts/ssot_approval.py` 가 감싼다)와 harness
                     훅(`uvx` 로 `python -m checker.ssot_approval` 을 부른다)이
                     같은 판정 로직을 쓴다
+  code_rules.py     공통 개발 규칙 CR-001(한글 이름), CR-002(반복문 안 DB
+                    조회)를 코드(ABAP, JS/TS, CDS)에서 검사한다(#54). 문서
+                    검사(engine.py)와 관할이 다르다 — 회사 폴더(templates/
+                    rules)를 요구하지 않고 모듈 하나에 CLI 까지 담는다.
+                    `pre_write_guard.py` 훅과 `scripts/check_changed.py` 가
+                    같은 함수(`build_report`)를 쓴다
+  code_checks.yaml  code_rules.py 의 설정. 언어별 확장자와, 그 언어에 어느
+                    CR 을 적용할지가 데이터로 있다
   readers/          형식별 본문 추출 (md, docx, xlsx, pptx)
   tests/
     make_fixtures.py  픽스처 생성. 결과물은 커밋하지 않는다
