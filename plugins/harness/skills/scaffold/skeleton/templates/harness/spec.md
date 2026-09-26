@@ -24,8 +24,11 @@ REQ-012, REQ-014 ([PRD](../ssot/PRD.md))
 
 ## 참조
 
-Convention 과 Template 은 본문에 옮겨 적지 않고 링크만 적는다. 예:
-`conventions/`, `templates/`.
+Convention 과 Template 은 본문에 옮겨 적지 않고 링크만 적는다. 공통 개발
+규칙(harness Plugin 의 `conventions/common.md`)과 이 저장소 `conventions/`
+를 함께 링크한다. 예:
+[공통 개발 규칙](https://github.com/jaeheeMin/blueward-harness/blob/main/plugins/harness/conventions/common.md),
+`conventions/naming.md`, `templates/`.
 
 ## 변경 이력
 

@@ -35,9 +35,15 @@ ID 칸에 같은 번호를 적어 Spec 과 원장이 한 번호로 연결되게 
 3. 위 "Spec 번호" 대로 다음 DEV 번호를 정한다.
 4. `templates/harness/spec.md` 틀대로 `docs/spec/DEV-xxx-<요약>.md` 를
    쓴다. `## 근거 요구사항` 에는 2 에서 고른 REQ 번호를 모두 적는다.
-   Convention·Template·규칙 본문은 옮겨 적지 않고 링크만 적는다. 설계에서
-   아직 불명확한 점은 추측으로 채우지 않고 사용자에게 묻되, 그래도 안 정해진
-   것은 `## 상세 설계` 아래 "미정" 으로 남긴다.
+   Convention·Template·규칙 본문은 옮겨 적지 않고 링크만 적는다. `## 참조`
+   에는 공통 개발 규칙(harness Plugin 의 `conventions/common.md`)을 GitHub
+   링크 `https://github.com/jaeheeMin/blueward-harness/blob/main/plugins/harness/conventions/common.md`
+   로 적는다 — 어느 저장소에서 이 Spec 을 읽어도 그대로 열리도록 상대 경로가
+   아니라 이 고정 URL 을 쓴다. 이 프로젝트 `conventions/*.md` 는 저장소 안
+   상대 경로로 함께 링크한다. 이번 설계와 관련된 CR 번호가 있으면 적는다 —
+   예를 들어 설계에 반복문 안에서 DB 를 조회하는 부분이 있으면 CR-002 를
+   적는다. 설계에서 아직 불명확한 점은 추측으로 채우지 않고 사용자에게 묻되,
+   그래도 안 정해진 것은 `## 상세 설계` 아래 "미정" 으로 남긴다.
 5. 진행 원장에 등록한다. 그 프로그램의 `## 개발 건` 표에
    `| DEV-xxx | 내용 | [spec](../../docs/spec/DEV-xxx-<요약>.md) | 담당 |
    대기 |  |` 행을 추가하고, 2 에서 고른 REQ 번호가 `## 관련 요구사항` 에
