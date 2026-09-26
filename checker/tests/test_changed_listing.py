@@ -15,7 +15,13 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-from check_changed import EXIT_CONFIG_ERROR, EXIT_PASS, main_entry, split_listing  # noqa: E402
+from check_changed import (  # noqa: E402
+    EXIT_CONFIG_ERROR,
+    EXIT_PASS,
+    has_company_folder,
+    main_entry,
+    split_listing,
+)
 
 
 def test_전부_깨진_목록은_통과로_답하지_않는다(tmp_path, capsys):
@@ -86,3 +92,67 @@ def test_git_이_한글_경로를_이스케이프하지_않게_한다(tmp_path):
     # 그리고 이스케이프된 쪽은 실제 파일로 인식되지 않는다 — 이것이 버그의 본체였다
     found, missing = split_listing(기본)
     assert found == [] and missing
+
+
+# ── 규칙 폴더를 빠뜨린 경우 ──────────────────────────────────────────────────
+#
+# `templates/` 와 `rules/` 를 함께 둔 폴더가 저장소 안에 하나도 없으면, 지금까지는
+# 모든 문서가 out_of_scope 로 빠져 조용히 통과했다(#24). 이 워크플로를 부르는 저장소는
+# 검사받을 뜻으로 부른 것이므로, 그것은 관할 밖이 아니라 설정을 빠뜨린 것이다.
+
+
+def test_규칙_폴더를_찾는다(tmp_path):
+    assert not has_company_folder(tmp_path)
+
+    (tmp_path / "대한물산" / "templates").mkdir(parents=True)
+    assert not has_company_folder(tmp_path), "templates 만으로는 규칙 폴더가 아니다"
+
+    (tmp_path / "대한물산" / "rules").mkdir()
+    assert has_company_folder(tmp_path)
+
+
+def test_규칙_폴더가_한_단계_아래_있어도_찾는다(tmp_path):
+    """`acme/templates` 와 `acme/rules` 처럼 한 단계 들어간 곳도 찾아야 한다."""
+    (tmp_path / "acme" / "templates").mkdir(parents=True)
+    (tmp_path / "acme" / "rules").mkdir()
+    assert has_company_folder(tmp_path)
+
+
+def test_규칙_폴더가_없으면_통과로_답하지_않는다(tmp_path, monkeypatch, capsys):
+    """Project Repository 가 `/scaffold` 를 잊으면 여기로 온다.
+
+    규칙 폴더가 없으면 바뀐 문서가 있어도 검사할 방법이 없다. 그것은 관할 밖이 아니라
+    설정이 어긋난 것이다.
+    """
+    문서 = tmp_path / "docs" / "회의록" / "20260922_주간정기.md"
+    문서.parent.mkdir(parents=True)
+    문서.write_text("# 회의록\n", encoding="utf-8")
+    (tmp_path / "changed.txt").write_text("docs/회의록/20260922_주간정기.md\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    assert main_entry(["changed.txt"]) == EXIT_CONFIG_ERROR
+    out = capsys.readouterr().out
+    assert "templates" in out and "rules" in out
+
+
+def test_규칙_폴더가_있으면_정상적으로_검사한다(tmp_path, monkeypatch, capsys):
+    """규칙 폴더가 있으면 이 가드에 걸리지 않고 평소대로 검사한다."""
+    (tmp_path / "대한물산" / "templates").mkdir(parents=True)
+    (tmp_path / "대한물산" / "rules").mkdir()
+    (tmp_path / "README.md").write_text("# 안내\n", encoding="utf-8")
+    (tmp_path / "changed.txt").write_text("README.md\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    code = main_entry(["changed.txt"])
+    report = json.loads(capsys.readouterr().out)
+    assert code == EXIT_PASS
+    assert report["summary"]["out_of_scope"] == 1
+
+
+def test_바뀐_것이_없으면_규칙_폴더가_없어도_통과다(tmp_path, monkeypatch, capsys):
+    """바뀐 것이 없다는 것은 정당한 통과이지 설정 오류가 아니다."""
+    (tmp_path / "changed.txt").write_text("\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    assert main_entry(["changed.txt"]) == EXIT_PASS
+    assert '"scoped": 0' in capsys.readouterr().out

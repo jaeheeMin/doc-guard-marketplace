@@ -13,6 +13,13 @@
 같은 이유로 목록 파일 자체가 없는 것과 목록이 비어 있는 것도 구분한다. 목록이 비어
 있으면 "바뀐 것이 없다" 는 뜻이라 통과(0)가 맞지만, 목록 파일을 읽지 못하면 무엇이
 바뀌었는지조차 알아내지 못한 것이므로 검사 불능(2)이다.
+
+회사 폴더(`templates/` 와 `rules/` 를 함께 둔 폴더)가 저장소 안에 하나도 없어도
+지금까지는 조용히 통과했다. 관할 glob 이 아무 것도 매치하지 못해 모든 문서가
+out_of_scope 로 빠지기 때문이다. 이 워크플로를 부르는 저장소는 검사받을 뜻으로 부른
+것이므로, 회사 폴더가 아예 없는 것은 관할 밖이 아니라 설정을 빠뜨린 것이다(#24). 바뀐
+파일이 있는데 회사 폴더가 하나도 없으면 검사 불능으로 끝낸다. 바뀐 파일이 없을 때는 이
+검사를 하지 않는다 — 그것은 정당한 통과이지 설정 오류가 아니다.
 """
 from __future__ import annotations
 
@@ -39,7 +46,42 @@ def split_listing(text: str) -> tuple[list[str], list[str]]:
     return found, missing
 
 
+def has_company_folder(root: Path, depth: int = 2) -> bool:
+    """회사 폴더가 하나라도 있는지 본다.
+
+    `templates/` 와 `rules/` 를 함께 둔 폴더가 회사 폴더다. `checker.locate` 의
+    `find_company_root` 는 문서 하나에서 위로 올라가며 찾지만, 여기서는 저장소 전체에
+    그런 폴더가 정말 하나도 없는지를 위에서 아래로 훑어 확인한다.
+    """
+    for level in range(depth + 1):
+        pattern = "/".join(["*"] * level + ["templates"])
+        for templates in root.glob(pattern):
+            if templates.is_dir() and (templates.parent / "rules").is_dir():
+                return True
+    return False
+
+
+def config_error(message: str) -> int:
+    """검사할 수 없는 상태를 알린다. 통과라고도 위반이라고도 답하지 않는다."""
+    print(json.dumps({"status": "config_error", "message": message}, ensure_ascii=False))
+    print(message, file=sys.stderr)
+    return EXIT_CONFIG_ERROR
+
+
+def _force_utf8() -> None:
+    """한글 메시지가 Windows 콘솔 코드페이지에서 깨지지 않게 한다.
+
+    이것이 없으면 Windows 콘솔 기본 인코딩(cp949 등)에서 한글이 담긴 출력이
+    UnicodeEncodeError 를 낸다. 이 스크립트의 출력은 거의 항상 한글이다.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def main_entry(argv: list[str] | None = None) -> int:
+    _force_utf8()
     args = sys.argv[1:] if argv is None else argv
     if not args:
         print("사용법: check_changed.py <바뀐 파일 목록 파일>", file=sys.stderr)
@@ -51,11 +93,7 @@ def main_entry(argv: list[str] | None = None) -> int:
     except OSError as exc:
         # 목록 파일 자체가 없다. 목록이 비어 있는 것과는 다르다 — 비어 있으면 "바뀐 것이
         # 없다" 지만, 파일이 없으면 무엇이 바뀌었는지조차 알아낼 수 없었다는 뜻이다.
-        print(json.dumps({
-            "status": "config_error",
-            "message": f"바뀐 파일 목록 {listing_path} 를 읽지 못했습니다: {exc}",
-        }, ensure_ascii=False))
-        return EXIT_CONFIG_ERROR
+        return config_error(f"바뀐 파일 목록 {listing_path} 를 읽지 못했습니다: {exc}")
 
     found, missing = split_listing(listing_text)
 
@@ -69,17 +107,27 @@ def main_entry(argv: list[str] | None = None) -> int:
 
     if missing and not found:
         # 전부 깨졌다. 통과라고 답하면 보호가 필요한 순간에 보호가 사라진다.
-        print(
-            '{"status": "config_error", "message": '
-            '"바뀐 파일 목록의 경로가 하나도 실제 파일이 아닙니다. '
-            '경로가 이스케이프되었거나 작업 디렉터리가 어긋났을 수 있습니다."}'
+        return config_error(
+            "바뀐 파일 목록의 경로가 하나도 실제 파일이 아닙니다. "
+            "경로가 이스케이프되었거나 작업 디렉터리가 어긋났을 수 있습니다."
         )
-        return EXIT_CONFIG_ERROR
 
     if not found:
-        # 애초에 목록이 비어 있었다. 검사할 것이 없고 그 사실은 리포트가 싣는다.
+        # 애초에 목록이 비어 있었다. 검사할 것이 없고 그 사실은 리포트가 싣는다. 회사
+        # 폴더 유무도 따지지 않는다 — 바뀐 것이 없다는 정당한 통과이지 설정 오류가
+        # 아니다.
         print(EMPTY_REPORT)
         return EXIT_PASS
+
+    if not has_company_folder(Path.cwd()):
+        # 바뀐 문서가 있는데 대조할 회사 폴더가 하나도 없다. 지금까지는 모든 문서가
+        # out_of_scope 로 빠져 조용히 통과했다(#24) — 회사 폴더를 만드는 것을 잊은
+        # Project Repository 가 정확히 이 모양이 된다.
+        return config_error(
+            "이 저장소에서 `templates/` 와 `rules/` 를 함께 가진 폴더를 찾지 못해 "
+            "검사할 수 없습니다. doc-guard 를 쓰는 Project Repository 라면 "
+            "`/scaffold` 로 구조를 만드십시오."
+        )
 
     return main(["--auto", *found])
 
