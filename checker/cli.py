@@ -29,10 +29,21 @@ EXIT_CONFIG_ERROR = 2
 
 
 def _relative(path: Path, root: Path) -> str:
+    """기준 경로 아래로의 상대경로를 낸다.
+
+    기준 아래에 있지 않으면 관할 glob 이 매치될 수가 없어 `out_of_scope` 로 빠진다.
+    그런데 그것은 "검사 대상이 아니다" 가 아니라 "기준점을 잘못 줘서 이 문서가 어디
+    있는지 판단하지 못했다" 이다. 판단 실패를 관할 밖으로 위장하지 않도록 여기서
+    설정 오류로 끊는다(#13).
+    """
+    resolved = path.resolve()
     try:
-        return path.resolve().relative_to(root).as_posix()
+        return resolved.relative_to(root).as_posix()
     except ValueError:
-        return path.as_posix()
+        raise ConfigError(
+            f"{resolved} 이 기준 경로 {root} 아래에 있지 않습니다. "
+            "--root 를 이 문서가 속한 폴더로 맞춰 주십시오."
+        ) from None
 
 
 def _force_utf8() -> None:
