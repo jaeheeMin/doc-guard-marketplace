@@ -70,7 +70,7 @@ plugins/harness/
 
 | 훅 | 시점 | 하는 일 |
 |---|---|---|
-| `pre_write_guard.py` | `PreToolUse` (Write\|Edit) | 문서가 템플릿을 벗어나면 저장을 막는다(doc-guard) |
+| `pre_write_guard.py` | `PreToolUse` (Write\|Edit) | 문서가 템플릿을 벗어나면 저장을 막는다(doc-guard). 코드(`.abap`, `.js`/`.ts`, `.cds`)는 공통 개발 규칙 CR-001·CR-002 를 어기면 막는다(#54) |
 | `pre-bash-git-guard.sh` | `PreToolUse` (Bash\|PowerShell) | 스킬을 거치지 않은 `git push` 와 main 직접 커밋을 막는다. `gh pr merge` 대상 PR 이 PRD 를 바꿨는데 승인이 없어도 막는다(#49) |
 | `session-start-sync.sh` | `SessionStart` | 원격과 동기화하고 지난 세션에서 남은 경고를 전한다 |
 | `stop-deliver.sh` | `Stop` | 커밋되지 않은 변경이 남았으면 `/harness:deliver` 를 안내한다 |
@@ -95,6 +95,12 @@ Plugin 은 세션에 상시 로드되는 지침을 넣을 수 없으므로, `ses
 훅이 세션 시작마다 이 목록을 짧게 요약해 맥락에 넣어 준다. `/harness:spec`
 이 만드는 Spec 의 `## 참조` 도 이 문서와 그 저장소 `conventions/` 를 함께
 링크한다.
+
+CR-001(한글 등 비ASCII 이름)과 CR-002(반복문 안 DB 조회)는 기계로도 검사한다(#54).
+검사 엔진은 `checker/code_rules.py` 이고, `pre_write_guard.py` 훅이 코드를 저장할 때,
+`.github/workflows/doc-guard.yml` 이 PR 마다 각각 부른다 — doc-guard 와 같은 엔진
+저장소, 같은 관문 구조를 그대로 쓴다. 나머지 CR-003~CR-008 은 아직 사람이 리뷰로만
+본다.
 
 ## 주의: 저장소에 같은 훅이 남아 있으면 두 번 돈다
 

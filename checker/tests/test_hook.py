@@ -253,3 +253,88 @@ def test_경로가_깨져_들어오면_검사_불능으로_거절한다(installe
     reason = out["hookSpecificOutput"]["permissionDecisionReason"]
     assert "문서 경로가 깨져 들어와" in reason
     assert "doc-guard 소관인지" in reason
+
+
+# --- 공통 개발 규칙(CR-001, CR-002, #54) -----------------------------------
+#
+# 문서 검사와 소관이 다르다 — 회사 폴더(`templates`/`rules`)를 요구하지 않는다.
+# 그래서 아래 테스트는 `company` 픽스처 없이 아무 임시 폴더에서나 확인한다.
+
+
+def test_설치본에서도_코드의_한글_이름을_막는다(installed_hook, tmp_path):
+    target = tmp_path / "z_report.abap"
+    code, out = run_hook(
+        installed_hook, _write_payload(target, "DATA 주문번호 TYPE vbeln.\n"), str(ENGINE_ROOT)
+    )
+    assert decision(out) == "deny"
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "CR-001" in reason
+    assert "주문번호" in reason
+
+
+def test_설치본에서도_반복문_안의_select를_막는다(installed_hook, tmp_path):
+    target = tmp_path / "z_report.abap"
+    code, out = run_hook(
+        installed_hook,
+        _write_payload(
+            target,
+            "LOOP AT lt_order INTO ls_order.\n"
+            "  SELECT SINGLE * FROM vbak INTO ls_vbak WHERE vbeln = ls_order-vbeln.\n"
+            "ENDLOOP.\n",
+        ),
+        str(ENGINE_ROOT),
+    )
+    assert decision(out) == "deny"
+    assert "CR-002" in out["hookSpecificOutput"]["permissionDecisionReason"]
+
+
+def test_설치본에서도_규칙을_지킨_코드는_통과시킨다(installed_hook, tmp_path):
+    target = tmp_path / "z_report.abap"
+    code, out = run_hook(
+        installed_hook, _write_payload(target, "DATA lv_order TYPE vbeln.\n"), str(ENGINE_ROOT)
+    )
+    assert code == 0 and out is None
+
+
+def test_회사_폴더가_없어도_공통_개발_규칙은_적용된다(installed_hook, tmp_path):
+    """CR-001/CR-002 는 doc-guard 와 달리 `templates`/`rules` 를 요구하지 않는다.
+
+    `tmp_path` 는 어느 회사 폴더에도 속하지 않지만(company 픽스처를 쓰지 않았다),
+    그래도 위반이 막혀야 이 규칙이 문서 검사와 소관이 다르다는 설계가 지켜진다.
+    """
+    target = tmp_path / "아무데나" / "z_report.abap"
+    code, out = run_hook(
+        installed_hook, _write_payload(target, "DATA 주문번호 TYPE vbeln.\n"), str(ENGINE_ROOT)
+    )
+    assert decision(out) == "deny"
+
+
+def test_harness_allow_주석이_있는_코드는_통과시킨다(installed_hook, tmp_path):
+    target = tmp_path / "z_report.abap"
+    text = (
+        "LOOP AT lt_order INTO ls_order.\n"
+        '  SELECT SINGLE * FROM vbak INTO ls_vbak WHERE vbeln = ls_order-vbeln. "#harness:allow CR-002 이유\n'
+        "ENDLOOP.\n"
+    )
+    code, out = run_hook(installed_hook, _write_payload(target, text), str(ENGINE_ROOT))
+    assert code == 0 and out is None
+
+
+def test_모르는_확장자의_코드_비슷한_파일은_관여하지_않는다(installed_hook, tmp_path):
+    target = tmp_path / "아무거나.txt"
+    code, out = run_hook(
+        installed_hook, _write_payload(target, "주문번호"), str(ENGINE_ROOT)
+    )
+    assert code == 0 and out is None
+
+
+def test_코드_엔진을_받을_수_없으면_통과가_아니라_거절한다(installed_hook, tmp_path):
+    """CLAUDE.md 원칙 7: '검사를 못 했다' 를 '통과' 로 뭉개지 않는다."""
+    target = tmp_path / "z_report.abap"
+    missing_engine = str(tmp_path / "존재하지-않는-경로")
+    code, out = run_hook(
+        installed_hook, _write_payload(target, "DATA lv_x TYPE vbeln.\n"), missing_engine
+    )
+    assert decision(out) == "deny"
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "확인되지 않는 상태로 통과시키지 않습니다" in reason

@@ -44,6 +44,17 @@ ENGINE_TIMEOUT_SECONDS = 110
 # 의미 있게 만들어지지 않으므로 손대지 않는다. 그쪽은 GitHub Actions 검사가 잡는다.
 TEXT_SUFFIXES = {".md", ".markdown", ".txt", ".yaml", ".yml", ".json", ".csv"}
 
+# 공통 개발 규칙(CR-001, CR-002, `checker.code_rules`, #54)의 검사 대상 확장자. 문서
+# 검사와는 다른 소관이라 따로 둔다 — 회사 폴더(templates/rules) 를 요구하지 않고, 어느
+# Project Repository 어느 폴더의 코드에도 똑같이 적용된다(`conventions/common.md`).
+#
+# 정확히 어느 언어에 어느 규칙을 적용할지는 엔진 쪽 데이터(`checker/code_checks.yaml`)가
+# 정한다 — 이 훅은 그 설정을 가져다 쓰지 않는다(설치본에는 엔진이 따라오지 않으므로,
+# 위 COMPANY_MARKERS 와 같은 사정이다). 그래서 여기 목록은 "검사 엔진에 보낼 만한
+# 확장자인가" 만 작게 판단하는 손으로 옮겨 적은 사본이고, 언어별로 정확히 어떤 규칙이
+# 도는지는 엔진이 결정한다. 언어가 늘면 이 목록과 `code_checks.yaml` 을 함께 고친다.
+CODE_SUFFIXES = {".abap", ".js", ".ts", ".mjs", ".cjs", ".cds"}
+
 # 회사 폴더는 이 둘을 함께 가진 디렉터리다. `checker/locate.py` 의 `find_company_root`
 # 와 같은 판단이다. 설치된 플러그인에는 엔진(checker 패키지)이 따라오지 않아 가져다
 # 쓸 수 없으므로 여기 그대로 옮겨 적는다 — `checker/locate.py` 가 바뀌면 이쪽도 손으로
@@ -155,6 +166,103 @@ def format_violations(report: dict) -> str:
     return "\n".join(lines)
 
 
+def format_code_violations(report: dict) -> str:
+    """`checker.code_rules` 의 리포트를 사람이 읽을 안내문으로 바꾼다.
+
+    `harness:allow` 로 예외 처리된 발견(`allowed`)은 보여주지 않는다 — 이미 인정된
+    예외를 다시 늘어놓으면 무엇을 진짜 고쳐야 하는지 흐려진다.
+    """
+    lines = []
+    for entry in report.get("files", []):
+        if entry.get("status") != "violation":
+            continue
+        for f in entry.get("findings", []):
+            if f.get("allowed"):
+                continue
+            lines.append(f"  - [{f.get('rule')}] {entry.get('file')}:{f.get('line')}:{f.get('col')} {f.get('message')}")
+            fix = f.get("fix")
+            if fix:
+                lines.append(f"      고치기: {fix}")
+    return "\n".join(lines)
+
+
+def _check_code(path: Path, content: str) -> None:
+    """공통 개발 규칙(CR-001, CR-002)을 코드에 적용한다(#54).
+
+    문서 검사(`_main` 의 나머지 절반)와 소관이 다르다 — 회사 폴더(`templates`/`rules`)
+    를 요구하지 않는다. 이 두 규칙은 어느 Project Repository, 어느 폴더의 코드에도
+    똑같이 적용되기 때문이다(`conventions/common.md`). 무엇이 위반인지는 전부
+    `checker.code_rules` 가 판정하고, 이 훅은 대상 확장자를 고르고 판정을 받아 막을지
+    정할 뿐이다 — 언어나 CR 코드가 늘어도 이 함수는 고치지 않는다.
+
+    엔진을 받거나 실행하지 못하면(doc-guard 와 같은 이유로) 통과가 아니라 거절한다.
+    `allow()`/`deny()` 는 `sys.exit` 로 끝나므로 이 함수는 값을 돌려주지 않는다.
+    """
+    with tempfile.TemporaryDirectory(prefix="doc-guard-code-") as tmp:
+        # 파일 이름(정확히는 확장자)으로 언어를 판정하므로 원래 이름 그대로 옮겨 적는다.
+        staged = Path(tmp) / path.name
+        staged.write_text(content, encoding="utf-8")
+
+        cmd = [
+            "uvx", "--from", engine_spec(), "python", "-m", "checker.code_rules",
+            "--json", str(staged),
+        ]
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        try:
+            done = subprocess.run(
+                cmd, capture_output=True, text=True, encoding="utf-8", env=env,
+                timeout=ENGINE_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            deny(
+                "harness 가 공통 개발 규칙 검사 엔진을 받거나 실행하지 못해 이 코드를 "
+                "확인할 수 없었습니다.\n"
+                f"사유: {exc}\n\n"
+                "확인할 것: uv 가 설치되어 있는가, 네트워크가 되는가. 로컬에서 개발·테스트 "
+                "중이라면 DOC_GUARD_ENGINE 환경변수로 엔진 경로를 지정할 수 있습니다.\n"
+                "확인되지 않는 상태로 통과시키지 않습니다."
+            )
+
+    if done.returncode == 0:
+        allow()
+
+    try:
+        report = json.loads(done.stdout)
+    except json.JSONDecodeError:
+        deny(
+            "공통 개발 규칙 검사기의 출력을 해석하지 못했습니다.\n"
+            f"{(done.stderr or done.stdout or '').strip()[:500]}\n\n"
+            "확인되지 않는 상태로 통과시키지 않습니다."
+        )
+
+    # 리포트의 file 은 임시 스테이징 경로다. 사람에게는 원래 저장하려던 경로를 보여준다.
+    for entry in report.get("files", []):
+        entry["file"] = str(path)
+
+    if done.returncode == 1:
+        deny(
+            "harness: 이 코드가 공통 개발 규칙을 어겼습니다(conventions/common.md).\n\n"
+            + format_code_violations(report)
+            + "\n\n위를 고치거나, 정말 예외라면 같은 줄이나 바로 위 줄에 주석으로 "
+              "`harness:allow CR-00N <이유>` 를 남기고 다시 저장하십시오."
+        )
+
+    if done.returncode == 2:
+        reasons = [f.get("reason", "") for f in report.get("files", []) if f.get("status") == "error"]
+        deny(
+            "공통 개발 규칙 검사기가 이 코드를 읽지 못했습니다.\n"
+            + "\n".join(r for r in reasons if r)
+            + "\n\n확인되지 않는 상태로 통과시키지 않습니다."
+        )
+
+    # 0, 1, 2 는 checker.code_rules 가 약속한 종료코드다. 그 밖은 계약에 없다.
+    deny(
+        f"공통 개발 규칙 검사기가 알 수 없는 종료코드({done.returncode})로 끝나 이 코드를 "
+        "확인할 수 없었습니다.\n"
+        "확인되지 않는 상태로 통과시키지 않습니다."
+    )
+
+
 def _main() -> None:
     try:
         payload = json.loads(sys.stdin.read() or "{}")
@@ -176,7 +284,23 @@ def _main() -> None:
         allow()
 
     path = Path(raw_path)
-    if path.suffix.lower() not in TEXT_SUFFIXES:
+    suffix = path.suffix.lower()
+
+    if suffix in CODE_SUFFIXES:
+        # 공통 개발 규칙(#54)은 문서 검사와 소관이 다르다 — 회사 폴더를 요구하지
+        # 않으므로 아래 doc-guard 절차(find_company_root 등)를 타지 않는다.
+        if _has_broken_encoding(raw_path):
+            deny(
+                "코드 경로가 깨져 들어와(인코딩 문제) 이 파일을 확인할 수 없습니다.\n"
+                "확인되지 않는 상태로 통과시키지 않습니다."
+            )
+        content = proposed_content(tool, tool_input, path)
+        if content is None:
+            allow()
+        _check_code(path, content)
+        return  # _check_code 는 allow()/deny() 로 끝나므로 여기 닿지 않는다
+
+    if suffix not in TEXT_SUFFIXES:
         allow()
 
     if _has_broken_encoding(raw_path):
