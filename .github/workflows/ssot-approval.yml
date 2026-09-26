@@ -68,6 +68,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set +e
           uv run --project .harness-engine python .harness-engine/scripts/ssot_approval.py \
@@ -159,6 +160,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set +e
           uv run --project .harness-engine python .harness-engine/scripts/ssot_approval.py \
@@ -175,6 +177,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           sha_short="${GITHUB_SHA:0:7}"
           code="${{ steps.decide.outputs.exit-code }}"
