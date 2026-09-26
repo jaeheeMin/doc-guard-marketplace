@@ -18,6 +18,7 @@ plugins/harness/
     deliver/SKILL.md           /harness:deliver — 커밋·동기화·푸시·PR
     wrapup/SKILL.md            /harness:wrapup — 남은 작업의 이슈화
     scaffold/                  /harness:scaffold — Project Repository 표준 구조 생성
+    prd/SKILL.md               /harness:prd — PRD 작성·수정
   rules/                       위 Skill 이 참조하는 협업 규칙 5개
 ```
 
@@ -50,7 +51,7 @@ plugins/harness/
 
 ## 제공하는 것
 
-### Skill 4개
+### Skill 5개
 
 플러그인 스킬은 이름 앞에 플러그인 이름이 붙으므로 아래 이름으로 나타난다.
 
@@ -60,6 +61,7 @@ plugins/harness/
 | `/harness:deliver` | 작업을 마무리한다. 커밋·동기화·푸시·PR 생성을 한 번에 |
 | `/harness:wrapup` | 세션에서 끝내지 못한 작업을 이슈로 남긴다 |
 | `/harness:scaffold` | 새 Project Repository 에 표준 구조를 만든다 |
+| `/harness:prd` | PRD 를 새로 쓰거나, 요구사항이 바뀌었을 때 고친다 |
 
 ### 훅 4개
 

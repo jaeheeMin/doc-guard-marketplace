@@ -30,12 +30,14 @@
 ```
 
 템플릿을 읽지 않는 규칙(`filename`, `location` 등)만 쓸 때는 `템플릿:` 을
-아예 생략할 수 있다. `rules/ssot.yaml` 이 그 예시다.
+아예 생략할 수 있다.
 
 ## harness 가 미리 넣어 둔 규칙
 
 `ssot.yaml` 외에 `audit-changes.yaml` 과 `audit-ledger.yaml` 도 이미 있다.
-`audit/changes/` 와 `audit/ledger/` 에 쓰는 기록의 파일 이름과 필수 절을
-검사한다. 이 둘이 가리키는 템플릿은 `templates/harness/` 아래에 있다 —
+`ssot.yaml` 은 `docs/ssot/PRD.md` 의 파일 이름과 필수 절(`templates/harness/
+PRD.md` 의 `##` 제목)을 검사하고, `audit-changes.yaml` 과 `audit-ledger.yaml`
+은 `audit/changes/` 와 `audit/ledger/` 에 쓰는 기록의 파일 이름과 필수 절을
+검사한다. 이 셋이 가리키는 템플릿은 `templates/harness/` 아래에 있다 —
 harness 자신의 템플릿이라 고객사 템플릿과 섞이지 않게 따로 둔다. 이 셋도
 지우지 않는다.

@@ -32,8 +32,8 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
    - 환경별 접속 URL 을 `env/` 에 적는다.
    - `.github/workflows/doc-guard.yml` 이 이제부터 이 저장소의 PR 과 main
      커밋마다 검사를 돌린다.
-   - PRD 는 아직 없는 `/prd` Skill 로 만들 예정이다. 지금은
-     `docs/ssot/PRD.md` 가 빈 스텁으로만 있다.
+   - PRD 는 `/harness:prd` Skill 로 만든다. 지금은 `docs/ssot/PRD.md` 가
+     빈 스텁으로만 있다.
 
 ## 만들어지는 구조
 
@@ -41,10 +41,11 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
 CLAUDE.md                          이 저장소가 무엇인지, 디렉터리와 규칙 요약
 docs/ssot/PRD.md                   요구사항의 정본(SSOT). 아직 빈 스텁
 templates/README.md                고객사 템플릿 원본을 두는 자리
+templates/harness/PRD.md           PRD 틀
 templates/harness/audit-change.md  변경 기록 템플릿
 templates/harness/audit-ledger.md  진행 원장 템플릿
 rules/README.md                    규칙 작성법과 예시
-rules/ssot.yaml                    PRD 파일명을 고정하는 실제 동작 규칙
+rules/ssot.yaml                    PRD 파일명·필수 절 규칙
 rules/audit-changes.yaml           변경 기록의 파일명·필수 절 규칙
 rules/audit-ledger.yaml            진행 원장의 파일명·필수 절 규칙
 conventions/README.md              이 프로젝트에서만 통하는 Convention

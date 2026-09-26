@@ -42,6 +42,7 @@ EXPECTED_FILES = {
     "CLAUDE.md",
     "docs/ssot/PRD.md",
     "templates/README.md",
+    "templates/harness/PRD.md",
     "templates/harness/audit-change.md",
     "templates/harness/audit-ledger.md",
     "rules/README.md",
