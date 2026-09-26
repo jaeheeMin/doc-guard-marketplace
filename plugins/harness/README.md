@@ -70,7 +70,7 @@ plugins/harness/
 | 훅 | 시점 | 하는 일 |
 |---|---|---|
 | `pre_write_guard.py` | `PreToolUse` (Write\|Edit) | 문서가 템플릿을 벗어나면 저장을 막는다(doc-guard) |
-| `pre-bash-git-guard.sh` | `PreToolUse` (Bash\|PowerShell) | 스킬을 거치지 않은 `git push` 와 main 직접 커밋을 막는다 |
+| `pre-bash-git-guard.sh` | `PreToolUse` (Bash\|PowerShell) | 스킬을 거치지 않은 `git push` 와 main 직접 커밋을 막는다. `gh pr merge` 대상 PR 이 PRD 를 바꿨는데 승인이 없어도 막는다(#49) |
 | `session-start-sync.sh` | `SessionStart` | 원격과 동기화하고 지난 세션에서 남은 경고를 전한다 |
 | `stop-deliver.sh` | `Stop` | 커밋되지 않은 변경이 남았으면 `/harness:deliver` 를 안내한다 |
 
@@ -127,3 +127,34 @@ Project Repository 의 CLAUDE.md 에 짧게 적어 둬야 세션이 매번 상�
 적어도 된다. 형식에 맞지 않는 기록(파일 이름, 필수 절)은
 `rules/audit-changes.yaml` 과 `rules/audit-ledger.yaml` 이 doc-guard 로
 검사한다.
+
+## PRD 변경 승인(#49)
+
+`docs/ssot/`(PRD) 를 바꾼 PR 은 작성자가 아닌 사람의 Approve 가 있어야 한다.
+Project Repository 는 개인 무료 계정의 비공개 저장소라 브랜치 보호·ruleset·
+CODEOWNERS 를 강제할 수 없으므로(무료 요금제 한계), 이 규칙은 "막는다" 가
+아니라 "승인 없이 넘어가면 반드시 드러나고 기록에 남는다" 로 세 겹을 쌓는다.
+세 곳 모두 같은 판정 로직(`checker.ssot_approval`)을 부르므로 "승인됐다" 의
+의미가 갈라지지 않는다.
+
+1. **PR 검사** — `.github/workflows/ssot-approval.yml`(`/harness:scaffold`
+   가 만든다)이 `pull_request` 와 `pull_request_review` 마다 판정하고, 승인이
+   없으면 job 을 실패시키고 PR 코멘트로 사유를 알린다.
+2. **merge 뒤 감지** — 같은 워크플로가 `push` 마다 그 커밋의 PR 을 찾아, PRD
+   를 바꿨는데 승인이 없었으면 이슈를 연다. PR 없이 main 에 직접 push 된
+   경우도 잡는다.
+3. **harness 훅** — `pre-bash-git-guard.sh` 가 `gh pr merge` 명령을 가로채,
+   대상 PR 이 PRD 를 바꿨는데 승인이 없으면 거부한다. 판정 자체를 할 수
+   없으면(네트워크 없음, `gh`·`uvx` 없음) 통과가 아니라 거부로 답한다
+   (CLAUDE.md 원칙 7).
+
+승인자 목록은 `.github/ssot-approvers` 에 GitHub 아이디로 한 줄씩 적는다.
+비어 있으면 작성자가 아닌 누구의 승인이든 인정한다.
+
+**한계.** 무료 요금제에서는 위 세 겹 중 어느 것도 GitHub 화면의 merge 버튼
+자체를 잠그지 못한다 — PR 검사 실패를 무시하고 merge 하거나, harness 훅이
+설치되지 않은 곳(다른 사람의 PC, GitHub 웹 화면)에서 merge 하면 그대로
+넘어간다. 그런 경우에도 **merge 뒤 감지가 반드시 이슈를 열어 드러낸다는
+것**이 이 설계의 마지막 안전망이다. 또한 "작성자가 아닌 사람" 만 볼 뿐,
+승인자 본인이 공모해 스스로에게 유리하게 승인하는 것(형식은 지키되 내용은
+부실한 승인)은 이 검사가 가려내지 못한다 — 그것은 사람이 하는 검토의 몫이다.

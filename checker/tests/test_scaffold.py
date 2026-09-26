@@ -58,6 +58,8 @@ EXPECTED_FILES = {
     "audit/ledger/.gitkeep",
     "env/README.md",
     ".github/workflows/doc-guard.yml",
+    ".github/workflows/ssot-approval.yml",
+    ".github/ssot-approvers",
 }
 
 
@@ -82,6 +84,27 @@ def test_예상하는_파일을_모두_만들고_치환한다(tmp_path: Path):
     assert "블루워드 테스트프로젝트" in claude_md
     prd = (tmp_path / "docs" / "ssot" / "PRD.md").read_text(encoding="utf-8")
     assert "테스트프로젝트 PRD" in prd
+
+
+def test_승인자를_주면_ssot_approvers_파일에_한_줄씩_적는다(tmp_path: Path):
+    result = scaffold(tmp_path, "고객사", "프로젝트", False, ["alice", "@bob"])
+
+    assert set(result["created"]) == EXPECTED_FILES
+    text = (tmp_path / ".github" / "ssot-approvers").read_text(encoding="utf-8")
+    assert "alice" in text
+    assert "@bob" in text
+    assert "{{" not in text
+
+
+def test_승인자를_안_주면_ssot_approvers_는_주석만_남는다(tmp_path: Path):
+    scaffold(tmp_path, "고객사", "프로젝트", False)
+
+    text = (tmp_path / ".github" / "ssot-approvers").read_text(encoding="utf-8")
+    assert "{{" not in text
+    non_comment_lines = [
+        line for line in text.splitlines() if line.strip() and not line.strip().startswith("#")
+    ]
+    assert non_comment_lines == []
 
 
 def test_두번째_실행은_아무것도_만들지_않고_기존_파일을_보존한다(tmp_path: Path):
