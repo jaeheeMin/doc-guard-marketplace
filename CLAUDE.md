@@ -140,6 +140,12 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 그 필수 절을 강제하는 `rules/ssot.yaml` 을 스켈레톤에 추가해, PRD 를 새로
 쓰거나 고칠 때 요구사항 목록과 변경 근거를 Audit 기록으로 남기게 했다.
 
+**`/harness:spec` Skill 을 추가했다(#45).** Spec 틀(`templates/harness/
+spec.md`)과 `rules/spec.yaml` 을 스켈레톤에 추가해, PRD 의 REQ 를 근거로
+`docs/spec/DEV-xxx-<요약>.md` 를 만들고 진행 원장에 개발 건으로 등록하게
+했다. `/harness:deliver` 도 관련 개발 건을 찾아 PR 에 진행 원장 링크를 넣고
+PR 을 만든 뒤 원장 상태를 갱신하게 했다.
+
 ### 아직 정하지 않은 것
 
 정한 것과 정하지 않은 것을 섞지 않기 위해 남겨 둔다.
@@ -195,6 +201,7 @@ Skill 과 이를 강제하는 훅은 이 저장소가 직접 갖고 있지 않�
 | `/harness:wrapup` | 세션에서 다 끝내지 못한 작업을 이슈로 남길 때 |
 | `/harness:scaffold` | Project Repository 에서 검사기가 기대하는 표준 구조를 만들 때 |
 | `/harness:prd` | Project Repository 에서 PRD 를 만들거나 고칠 때 |
+| `/harness:spec` | PRD 요구사항으로 개발 Spec 을 만들거나, PRD 가 바뀌어 Spec 을 고칠 때 |
 
 `/release` 와 `/intake` 는 이 저장소에 두지 않았다. 릴리즈를 발행할 때가
 되거나 외부 디렉터리를 적재할 일이 생기면 `jaeheeMin/public-cloud` 에서

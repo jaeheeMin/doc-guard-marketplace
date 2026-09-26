@@ -40,12 +40,15 @@ description: 새 고객사 Project Repository 를 처음 만들었을 때 표준
 ```
 CLAUDE.md                          이 저장소가 무엇인지, 디렉터리와 규칙 요약
 docs/ssot/PRD.md                   요구사항의 정본(SSOT). 아직 빈 스텁
+docs/spec/.gitkeep                 개발 Spec 이 쌓일 자리
 templates/README.md                고객사 템플릿 원본을 두는 자리
 templates/harness/PRD.md           PRD 틀
+templates/harness/spec.md          개발 Spec 틀
 templates/harness/audit-change.md  변경 기록 템플릿
 templates/harness/audit-ledger.md  진행 원장 템플릿
 rules/README.md                    규칙 작성법과 예시
 rules/ssot.yaml                    PRD 파일명·필수 절 규칙
+rules/spec.yaml                    Spec 파일명·필수 절 규칙
 rules/audit-changes.yaml           변경 기록의 파일명·필수 절 규칙
 rules/audit-ledger.yaml            진행 원장의 파일명·필수 절 규칙
 conventions/README.md              이 프로젝트에서만 통하는 Convention
@@ -56,12 +59,14 @@ env/README.md                      환경별 접속 URL(Credential 은 안 둠)
 .github/workflows/doc-guard.yml    PR·main 커밋마다 doc-guard 를 부르는 워크플로
 ```
 
-`rules/ssot.yaml`, `rules/audit-changes.yaml`, `rules/audit-ledger.yaml` 을
-지우지 않는다. `rules/` 에 `*.yaml` 이 하나도 없으면 모든 검사가 설정 오류로
-실패한다.
+`rules/ssot.yaml`, `rules/spec.yaml`, `rules/audit-changes.yaml`,
+`rules/audit-ledger.yaml` 을 지우지 않는다. `rules/` 에 `*.yaml` 이 하나도
+없으면 모든 검사가 설정 오류로 실패한다.
 
 ## 안전장치
 
 - 기존 파일을 덮어쓰지 않으므로 이미 세팅된 저장소에 다시 돌려도 안전하다.
-- `docs/spec/` 이나 `src/` 처럼 아직 내용이 정해지지 않은 빈 폴더는 만들지
-  않는다. git 은 빈 폴더를 추적하지 못하고, 그 구조는 나중 Skill 이 정한다.
+- `src/` 처럼 아직 내용이 정해지지 않은 빈 폴더는 만들지 않는다. git 은 빈
+  폴더를 추적하지 못하고, 그 구조는 나중 Skill 이 정한다. `docs/spec/` 은
+  `audit/changes/`·`audit/ledger/` 와 같은 이유로 `.gitkeep` 을 둬 미리
+  만들어 둔다 — `/harness:spec` 이 그 안에 파일을 쓰기 때문이다.
