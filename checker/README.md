@@ -29,7 +29,7 @@ checker/
 
 | 진입점 | 도는 곳 | 엔진을 어떻게 얻나 |
 |---|---|---|
-| `plugins/doc-guard/` 훅 | 팀원 PC 의 Claude | 마켓플레이스에서 설치 |
+| `plugins/harness/` 훅 | 팀원 PC 의 Claude | 마켓플레이스에서 설치 |
 | GitHub Actions | GitHub 서버 | 대상 저장소에 번들로 들어가야 함 |
 
 Actions 는 팀원 PC 에 설치된 플러그인을 쓸 수 없다. 엔진을 `plugins/` 안으로
@@ -177,7 +177,7 @@ doc-guard --clean <파일...> [--out-dir <곳>]
 
 | 껍데기 | 언제 | 무엇을 막나 | 어디에 |
 |---|---|---|---|
-| 플러그인 훅 | 팀원 PC 에서 문서를 저장할 때 | 텍스트 문서 | `plugins/doc-guard/hooks/` |
+| 플러그인 훅 | 팀원 PC 에서 문서를 저장할 때 | 텍스트 문서 | `plugins/harness/hooks/` |
 | GitHub Actions | 커밋해서 올릴 때 | 모든 형식 | `.github/workflows/doc-guard.yml` |
 
 둘이 하는 일은 같다 — 회사 폴더를 찾고, 엔진을 부르고, 종료코드로 분기한다. 끝만 다르다.

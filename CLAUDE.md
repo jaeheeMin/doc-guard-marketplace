@@ -9,8 +9,9 @@
 안내하는 체계(**doc-guard**)의 Plugin Repository(이 저장소)다. 세 가지를 담는다.
 
 - `checker/` — 검사 엔진. 문서를 읽어 규칙 위반 목록을 낸다.
-- `plugins/doc-guard/` — 엔진을 부르는 Claude Code 플러그인. 훅과 `/scaffold`
-  Skill 이 들어 있고 엔진은 들어 있지 않다. 이 저장소 자체가 플러그인
+- `plugins/harness/` — 엔진과 협업 Skill·규칙·훅을 함께 부르는 Claude Code
+  플러그인. 이름은 `harness` 지만 문서 검사 기능 자체는 여전히 doc-guard 라고
+  부른다. 엔진(`checker/`)은 들어 있지 않다. 이 저장소 자체가 플러그인
   마켓플레이스라 팀원은 여기서 설치해 쓴다.
 - `.github/workflows/doc-guard.yml` — Project Repository 가 불러 쓰는 재사용
   워크플로. GitHub Actions 경로는 이것을 통해 엔진을 가져다 쓴다.
@@ -118,6 +119,13 @@ Summary 모두 제목부터 "❌ 템플릿 위반"(문서를 고친다)과 "⚠�
 열려 있는 결함은 GitHub 이슈로 관리한다. 검사 불능 구분(#13), 규칙 폴더 가드(#24),
 한글 경로 결함(#14)은 마쳤고, 우선순위는 훅 배선을 실제 마켓플레이스 설치본에서
 검증하는 것이 앞이다.
+
+**협업 Skill·규칙·훅을 harness Plugin 에 담았다(#37).** `/start`, `/deliver`,
+`/wrapup` Skill 과 공통 규칙 5개, 그것을 강제하는 훅 3개(push 가드, 세션 시작
+동기화, 세션 종료 안내)를 `plugins/harness/` 에 복사해 플러그인 설치만으로도
+쓸 수 있게 했다. 이 저장소 자체가 쓰는 `.claude/skills`, `.claude/hooks`,
+`rules/` 의 옛 사본은 아직 지우지 않았다 — 저장소 쪽 정리와 이 저장소 자신의
+플러그인 자기 설치는 이 작업이 merge 된 뒤 별도 PR 로 한다.
 
 ### 아직 정하지 않은 것
 

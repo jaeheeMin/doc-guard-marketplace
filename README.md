@@ -7,10 +7,10 @@
 
 ```
 checker/            검사 엔진. 문서를 읽어 규칙 위반 목록을 낸다
-plugins/doc-guard/  위 엔진을 부르는 Claude Code 플러그인
+plugins/harness/    위 엔진과 협업 Skill·규칙·훅을 함께 부르는 Claude Code 플러그인
 .claude-plugin/     이 저장소가 플러그인 마켓플레이스임을 선언
-rules/              이 저장소에서 일하는 규칙 (브랜치·커밋·이슈)
-.claude/            협업 스킬과 훅
+rules/              이 저장소에서 일하는 규칙 (브랜치·커밋·이슈) — harness 플러그인에도 같은 사본이 있다
+.claude/            협업 스킬과 훅 — harness 플러그인에도 같은 사본이 있다
 .githooks/          main 직접 커밋·푸시를 막는 git hook
 ```
 
@@ -48,6 +48,11 @@ Actions 는 팀원 PC 에 설치된 플러그인을 쓸 수 없다. 엔진을 `p
 다음 할 일은 플러그인 훅이다. 지금은 검사만 하고 아무것도 막지 못한다 — 엔진이 위반을
 종료코드로 알리지만 그것을 받아 거절하는 껍데기가 아직 없다.
 
+협업 Skill(`/start`, `/deliver`, `/wrapup`) 과 공통 규칙 5개, 그것을 강제하는 훅
+3개를 `plugins/harness/` 플러그인에 담았다. 저장소 쪽 `.claude/skills` 와
+`.claude/hooks` 와 `rules/` 의 옛 사본은 아직 지우지 않았고, 정리는 후속 PR 로
+미룬다.
+
 ## 설치와 사용
 
 플러그인 훅이 생긴 뒤에 아래로 설치한다. 그 전에는 엔진을 직접 부른다.
@@ -58,7 +63,7 @@ uv run doc-guard --rules <회사>/rules/ <회사>/docs/파일.md
 
 ```
 /plugin marketplace add jaeheeMin/blueward-harness
-/plugin install doc-guard
+/plugin install harness@blueward-harness
 ```
 
 플러그인은 저장소가 아니라 **사람** 에게 설치된다. 한 번 설치하면 어느 저장소를
