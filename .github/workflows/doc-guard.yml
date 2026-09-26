@@ -114,10 +114,39 @@ jobs:
         if: steps.changed.outputs.none != 'true'
         shell: bash
         run: |
+          # 위반(1)과 검사 불능(그 밖의 전부)은 받는 사람이 다르므로 주석 제목부터
+          # 갈라 둔다. 둘 다 job 은 실패하지만, "무엇이 실패했는지" 를 한눈에
+          # 구분하지 못하면 문서를 고쳐야 할 사람과 규칙을 고쳐야 할 사람이 뒤섞인다.
           code="${{ steps.check.outputs.exit-code }}"
           case "$code" in
-            0) echo "통과" ;;
-            1) echo "::error::문서가 템플릿을 따르지 않습니다. PR 코멘트를 보십시오."; exit 1 ;;
-            2) echo "::error::규칙 파일에 문제가 있어 검사할 수 없습니다. 규칙 담당자에게 알리십시오."; exit 1 ;;
-            *) echo "::error::검사기가 예상치 못한 코드 $code 로 끝났습니다."; exit 1 ;;
+            0)
+              echo "통과"
+              ;;
+            1)
+              echo "::error title=doc-guard 위반::문서가 템플릿을 따르지 않습니다. PR 코멘트를 보십시오."
+              {
+                echo ""
+                echo "### doc-guard 판정: ❌ 위반"
+                echo "문서를 고쳐야 합니다."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            2)
+              echo "::error title=doc-guard 검사 불능::규칙 파일에 문제가 있어 검사할 수 없습니다. 규칙 담당자에게 알리십시오."
+              {
+                echo ""
+                echo "### doc-guard 판정: ⚠️ 검사 불능"
+                echo "규칙·설정을 고쳐야 합니다. 문서의 문제가 아닙니다."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            *)
+              echo "::error title=doc-guard 검사 불능::검사기가 예상치 못한 코드 $code 로 끝났습니다."
+              {
+                echo ""
+                echo "### doc-guard 판정: ⚠️ 검사 불능"
+                echo "규칙·설정을 고쳐야 합니다. 문서의 문제가 아닙니다."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
           esac
