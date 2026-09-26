@@ -111,6 +111,16 @@ def test_스킬이_저장소_루트_기준_규칙_경로를_쓰지_않는다(nam
     assert not broken, f"{skill_md} 에 저장소 루트 기준 rules/ 경로가 남아 있다: {broken}"
 
 
+def test_공통_개발_규칙_문서에_CR_001부터_008까지_있다():
+    """#53 — common.md 가 CR-001 ~ CR-008 여덟 개 헤딩을 모두 가지고 있는가."""
+    common_md = PLUGIN_ROOT / "conventions" / "common.md"
+    assert common_md.is_file(), f"{common_md} 가 없다"
+
+    text = common_md.read_text(encoding="utf-8")
+    for n in range(1, 9):
+        assert re.search(rf"^## CR-{n:03d}\b", text, re.MULTILINE), f"CR-{n:03d} 헤딩이 없다"
+
+
 @pytest.mark.parametrize(
     "sh_name",
     ["pre-bash-git-guard.sh", "session-start-sync.sh", "stop-deliver.sh"],
@@ -218,3 +228,74 @@ def test_gh_pr_가_아닌_명령은_영향을_받지_않는다():
     code, out = _run_guard("gh pr view 123 -R owner/repo")
     assert code == 0
     assert out is None
+
+
+# --- 세션 시작 훅의 공통 개발 규칙 요약(#53) --------------------------------
+#
+# 임시 git 저장소를 만들어 그 안에서 session-start-sync.sh 를 직접 돌린다.
+# 원격을 연결하지 않으므로 훅의 fetch/pull 단계는 "원격이 없다" 로 바로
+# 건너뛴다 — 네트워크를 기다리거나 실패해 멈추지 않는다.
+
+
+def _init_temp_git_repo(repo: Path) -> None:
+    repo.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=repo, check=True)
+    (repo / "README.md").write_text("test\n", encoding="utf-8", newline="\n")
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=repo, check=True)
+
+
+def _run_session_start_sync(repo: Path) -> str:
+    env = {
+        **os.environ,
+        "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT),
+        "CLAUDE_PROJECT_DIR": str(repo),
+    }
+    done = subprocess.run(
+        [_BASH, str(PLUGIN_ROOT / "hooks" / "session-start-sync.sh")],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        timeout=60,
+    )
+    return done.stdout
+
+
+@pytest.mark.skipif(not _HAS_BASH, reason="bash 가 없으면 훅을 실행해 볼 수 없다")
+def test_세션_시작_요약에_공통_개발_규칙이_들어간다(tmp_path):
+    repo = tmp_path / "project"
+    _init_temp_git_repo(repo)
+
+    out = _run_session_start_sync(repo)
+
+    assert "공통 개발 규칙" in out
+    assert "CR-001" in out
+    expected_common_md = f"{PLUGIN_ROOT}/conventions/common.md"
+    assert expected_common_md in out
+
+    lines = out.splitlines()
+    start = next(i for i, line in enumerate(lines) if "공통 개발 규칙(harness)" in line)
+    block = lines[start:]
+    assert len(block) <= 14, f"요약 블록이 너무 길다({len(block)}줄): {block}"
+
+
+@pytest.mark.skipif(not _HAS_BASH, reason="bash 가 없으면 훅을 실행해 볼 수 없다")
+def test_프로젝트_conventions_가_있으면_함께_안내한다(tmp_path):
+    repo = tmp_path / "project"
+    _init_temp_git_repo(repo)
+    (repo / "conventions").mkdir()
+    (repo / "conventions" / "naming.md").write_text(
+        "# naming\n", encoding="utf-8", newline="\n"
+    )
+    (repo / "conventions" / "README.md").write_text(
+        "# conventions\n", encoding="utf-8", newline="\n"
+    )
+
+    out = _run_session_start_sync(repo)
+
+    assert "conventions/naming.md" in out
+    assert "이 저장소의 Convention" in out
+    assert "CR-004 제외" in out

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 공통 개발 규칙 요약(#53)에 쓸 Plugin 루트를 cd 전에 구해 둔다. Plugin 훅으로
+# 불릴 때는 CLAUDE_PLUGIN_ROOT 가 있지만, 없으면 이 스크립트 위치에서 구한다.
+# cd 뒤에는 "$0" 이 상대 경로일 때 깨질 수 있어 미리 계산한다.
+plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+
 cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 lines=""
@@ -77,6 +82,44 @@ if [ -n "$changed" ]; then
   add "커밋되지 않은 변경이 있습니다."
   add "$changed"
   add "작업을 마칠 때 /harness:deliver 로 커밋과 푸시와 PR 까지 정리하십시오."
+fi
+
+# 공통 개발 규칙 요약(#53). 목록은 common.md 의 `## CR-` 헤딩에서 파싱해
+# 만든다 — 여기 코드에 CR 목록을 다시 적으면 common.md 와 따로 놀 수 있다
+# (CLAUDE.md 원칙 2). 파싱에 실패하면(파일이 없거나 헤딩을 못 찾으면) 목록
+# 없이 경로만 알린다 — 검사를 못 했다고 조용히 통과시키지 않는 것과 같은
+# 이유로, 요약을 못 만들었다는 사실도 숨기지 않는다.
+common_md="${plugin_root}/conventions/common.md"
+cr_lines="$(grep '^## CR-' "$common_md" 2>/dev/null | sed 's/^## //' || true)"
+if [ -n "$cr_lines" ]; then
+  add "공통 개발 규칙(harness):"
+  while IFS= read -r cr_line; do
+    add "- $cr_line"
+  done <<< "$cr_lines"
+fi
+add "전문: $common_md"
+
+# 이 저장소 자체 conventions/ 가 있으면(README.md 만 있는 경우는 빼고) 함께
+# 안내한다. 최대 5개까지만 이름을 보여 준다.
+if [ -d conventions ]; then
+  proj_conventions=""
+  proj_conv_count=0
+  for f in conventions/*.md; do
+    [ -e "$f" ] || continue
+    name="$(basename "$f")"
+    [ "$name" = "README.md" ] && continue
+    proj_conv_count=$((proj_conv_count + 1))
+    [ "$proj_conv_count" -gt 5 ] && continue
+    if [ -z "$proj_conventions" ]; then
+      proj_conventions="conventions/$name"
+    else
+      proj_conventions="${proj_conventions}, conventions/$name"
+    fi
+  done
+  if [ -n "$proj_conventions" ]; then
+    add "이 저장소의 Convention: $proj_conventions"
+    add "공통 규칙과 부딪히면 이 저장소 Convention 을 따른다(CR-004 제외)."
+  fi
 fi
 
 printf '%s' "$lines"

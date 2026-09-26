@@ -21,6 +21,7 @@ plugins/harness/
     prd/SKILL.md               /harness:prd — PRD 작성·수정
     spec/SKILL.md              /harness:spec — 개발 Spec 작성·수정
   rules/                       위 Skill 이 참조하는 협업 규칙 5개
+  conventions/common.md        어느 저장소에서나 같은 공통 개발 규칙(CR-001 ~ CR-008)
 ```
 
 플러그인 이름은 `harness` 지만, 문서 검사 기능 자체는 여전히 **doc-guard** 라고
@@ -79,6 +80,21 @@ plugins/harness/
 `rules/branching.md`, `rules/commit-and-pr.md`, `rules/delegation.md`,
 `rules/governance.md`, `rules/issue-and-release.md`. 위 Skill 들이 이 문서를
 `<스킬의 base directory>/../../rules/`로 참조한다.
+
+### 공통 개발 규칙
+
+`conventions/common.md` 에 CR-001 ~ CR-008 여덟 개 규칙(한글 이름 금지,
+반복문 안 DB 조회 금지, SELECT * 금지, 비밀정보 금지, 표준 객체 직접 수정
+금지, 하드코딩 금지, 오류 삼키기 금지, 이름 접두어는 프로젝트 conventions
+로)을 담는다. 어느 Project Repository 에서나 같은 규칙이고, 프로젝트마다
+다른 규칙(이름 접두어, SAP naming rule 등)은 그 저장소 `conventions/` 에
+둔다. 두 규칙이 부딪히면 프로젝트 Convention 이 이기지만, CR-004(비밀
+정보)만은 예외 없이 지킨다.
+
+Plugin 은 세션에 상시 로드되는 지침을 넣을 수 없으므로, `session-start-sync.sh`
+훅이 세션 시작마다 이 목록을 짧게 요약해 맥락에 넣어 준다. `/harness:spec`
+이 만드는 Spec 의 `## 참조` 도 이 문서와 그 저장소 `conventions/` 를 함께
+링크한다.
 
 ## 주의: 저장소에 같은 훅이 남아 있으면 두 번 돈다
 
