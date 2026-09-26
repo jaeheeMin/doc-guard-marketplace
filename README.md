@@ -9,8 +9,7 @@
 checker/            검사 엔진. 문서를 읽어 규칙 위반 목록을 낸다
 plugins/harness/    위 엔진과 협업 Skill·규칙·훅을 함께 부르는 Claude Code 플러그인
 .claude-plugin/     이 저장소가 플러그인 마켓플레이스임을 선언
-rules/              이 저장소에서 일하는 규칙 (브랜치·커밋·이슈) — harness 플러그인에도 같은 사본이 있다
-.claude/            협업 스킬과 훅 — harness 플러그인에도 같은 사본이 있다
+.claude/            harness 플러그인 설치 설정 (enabledPlugins) — 스킬·훅 자체는 plugins/harness/ 에 있다
 .githooks/          main 직접 커밋·푸시를 막는 git hook
 ```
 
@@ -48,10 +47,11 @@ Actions 는 팀원 PC 에 설치된 플러그인을 쓸 수 없다. 엔진을 `p
 다음 할 일은 플러그인 훅이다. 지금은 검사만 하고 아무것도 막지 못한다 — 엔진이 위반을
 종료코드로 알리지만 그것을 받아 거절하는 껍데기가 아직 없다.
 
-협업 Skill(`/start`, `/deliver`, `/wrapup`) 과 공통 규칙 5개, 그것을 강제하는 훅
-3개를 `plugins/harness/` 플러그인에 담았다. 저장소 쪽 `.claude/skills` 와
-`.claude/hooks` 와 `rules/` 의 옛 사본은 아직 지우지 않았고, 정리는 후속 PR 로
-미룬다.
+협업 Skill(`/harness:start`, `/harness:deliver`, `/harness:wrapup`) 과 공통
+규칙 5개, 그것을 강제하는 훅 3개를 `plugins/harness/` 플러그인에 담았다.
+저장소 쪽 `.claude/skills` 와 `.claude/hooks` 와 루트 `rules/` 의 옛 사본은
+지웠고, 이 저장소도 `.claude/settings.json` 의 `enabledPlugins` 로 그
+플러그인을 설치해 쓴다.
 
 ## 설치와 사용
 
@@ -74,17 +74,18 @@ uv run doc-guard --rules <회사>/rules/ <회사>/docs/파일.md
 
 ## 개발 규칙
 
-작업은 항상 `/start` 로 시작해서 `/deliver` 로 마친다.
+작업은 항상 `/harness:start` 로 시작해서 `/harness:deliver` 로 마친다. 이
+스킬들은 저장소 자체가 아니라 `harness` 플러그인이 제공한다.
 
 ```
-사용자> /start 파일명 규칙 검사 추가
+사용자> /harness:start 파일명 규칙 검사 추가
 
 Claude> 이슈 #5 "파일명 규칙 검사 추가" 를 만들었습니다.
         브랜치 feat/5-add-filename-rule 로 이동했습니다.
 
 (... 작업 ...)
 
-사용자> /deliver
+사용자> /harness:deliver
 
 Claude> 커밋했습니다. origin/main 을 rebase 했습니다. 푸시했습니다.
         PR #6 을 열었습니다.
@@ -92,15 +93,15 @@ Claude> 커밋했습니다. origin/main 을 rebase 했습니다. 푸시했습니
 
 | 스킬 | 언제 |
 |---|---|
-| `/start` | 새 작업 시작. 이슈와 브랜치를 만든다 |
-| `/deliver` | 작업 마무리. 커밋·동기화·푸시·PR 을 한 번에 |
-| `/wrapup` | 못 끝낸 작업을 이슈로 남길 때 |
+| `/harness:start` | 새 작업 시작. 이슈와 브랜치를 만든다 |
+| `/harness:deliver` | 작업 마무리. 커밋·동기화·푸시·PR 을 한 번에 |
+| `/harness:wrapup` | 못 끝낸 작업을 이슈로 남길 때 |
 
 main 에 직접 커밋하거나 맨손 `git push` 하면 훅이 거부한다. 훅이 막으면
 우회하지 않는다. `--no-verify` 로 건너뛰지도 않는다. 거부 메시지의 안내를
 따르고, 안내가 상황과 맞지 않으면 판단을 사람에게 맡긴다.
 
-자세한 규칙은 `rules/` 가 정본이다. 요약은 `CLAUDE.md` 에 있다.
+자세한 규칙은 `plugins/harness/rules/` 가 정본이다. 요약은 `CLAUDE.md` 에 있다.
 
 > **브랜치 보호가 걸려 있지 않다.** 이 저장소는 개인 계정의 private 저장소이고
 > 요금제가 Free 라, GitHub 서버 쪽에서 main 을 강제로 지킬 수 없다. 지금
@@ -136,7 +137,7 @@ git config --get core.hooksPath
 
 - 이슈 라벨 5개 생성 완료 (`type:feat`, `type:fix`, `type:docs`, `type:chore`,
   `status:blocked`). `gh issue create --label` 은 라벨이 없으면 실패하므로
-  `/start` 가 이것에 의존한다.
+  `/harness:start` 가 이것에 의존한다.
 - 브랜치 보호 규칙은 위 사유로 걸지 않았다.
 - Teams 알림 워크플로는 옮기지 않았다. 붙이려면 이 저장소에 웹훅 시크릿
   `TEAMS_WEBHOOK_URL` 을 따로 등록해야 한다.
