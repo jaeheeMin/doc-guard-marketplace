@@ -9,9 +9,14 @@
 빼고 넘기므로 정상 상황이 아니다. 실제로 이 자리에서 한 번 당했다. git 이 한글 경로를
 따옴표와 8진수로 감싸 내놓는 바람에 모든 경로가 깨졌는데, 그때 이 스크립트가 말없이
 "검사 대상 없음" 으로 넘겨 위반 문서가 있는 PR 이 초록불로 통과했다.
+
+같은 이유로 목록 파일 자체가 없는 것과 목록이 비어 있는 것도 구분한다. 목록이 비어
+있으면 "바뀐 것이 없다" 는 뜻이라 통과(0)가 맞지만, 목록 파일을 읽지 못하면 무엇이
+바뀌었는지조차 알아내지 못한 것이므로 검사 불능(2)이다.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -40,7 +45,19 @@ def main_entry(argv: list[str] | None = None) -> int:
         print("사용법: check_changed.py <바뀐 파일 목록 파일>", file=sys.stderr)
         return EXIT_CONFIG_ERROR
 
-    found, missing = split_listing(Path(args[0]).read_text(encoding="utf-8"))
+    listing_path = Path(args[0])
+    try:
+        listing_text = listing_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        # 목록 파일 자체가 없다. 목록이 비어 있는 것과는 다르다 — 비어 있으면 "바뀐 것이
+        # 없다" 지만, 파일이 없으면 무엇이 바뀌었는지조차 알아낼 수 없었다는 뜻이다.
+        print(json.dumps({
+            "status": "config_error",
+            "message": f"바뀐 파일 목록 {listing_path} 를 읽지 못했습니다: {exc}",
+        }, ensure_ascii=False))
+        return EXIT_CONFIG_ERROR
+
+    found, missing = split_listing(listing_text)
 
     if missing:
         print(

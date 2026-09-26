@@ -7,6 +7,7 @@ PR 이 초록불로 통과했다. 지역 테스트가 이것을 놓친 이유는
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,15 @@ def test_목록이_비어_있으면_통과다(tmp_path, capsys):
     listing.write_text("\n  \n", encoding="utf-8")
     assert main_entry([str(listing)]) == EXIT_PASS
     assert '"scoped": 0' in capsys.readouterr().out
+
+
+def test_목록_파일이_아예_없으면_검사불능이다(tmp_path, capsys):
+    """비어 있는 것과 없는 것은 다르다. 없으면 무엇이 바뀌었는지조차 모른다."""
+    missing_listing = tmp_path / "존재하지_않음.txt"
+    assert main_entry([str(missing_listing)]) == EXIT_CONFIG_ERROR
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "config_error"
+    assert str(missing_listing) in out["message"]
 
 
 def test_있는_것과_없는_것을_가른다(tmp_path):

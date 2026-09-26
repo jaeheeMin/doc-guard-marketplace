@@ -160,6 +160,23 @@ def test_깨진_YAML_은_설정오류(capsys, tmp_path):
     assert code == EXIT_CONFIG_ERROR
 
 
+def test_root_바깥_파일은_관할밖이_아니라_설정오류(capsys, tmp_path, rules_dir, sample):
+    """#13: 기준점을 잘못 주면 판단 실패가 관할 밖으로 위장되면 안 된다.
+
+    `--root` 아래에 있지 않은 파일은 관할 glob 이 애초에 매치될 수 없으니 조용히
+    `out_of_scope` 로 빠뜨리지 않고, "판단하지 못했다" 는 사실을 설정 오류로 알린다.
+    """
+    outside = tmp_path / "밖" / "제안서.md"
+    outside.parent.mkdir()
+    outside.write_text("# 제목\n", encoding="utf-8")
+
+    code, out = invoke(capsys, rules_dir, outside, root=sample)
+    assert code == EXIT_CONFIG_ERROR
+    assert out["status"] == "config_error"
+    assert "제안서.md" in out["message"]
+    assert str(sample) in out["message"]
+
+
 def test_한글_출력이_인코딩으로_죽지_않는다(capsys, rules_dir, sample):
     """Windows 콘솔 기본 인코딩(cp949/cp1252)으로는 한글을 낼 수 없다.
 
