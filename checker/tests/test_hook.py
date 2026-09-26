@@ -1,11 +1,11 @@
 """설치된 플러그인 레이아웃에서 훅이 실제로 동작하는지 확인한다.
 
 `test_shims.py` 는 이 저장소 안에서 훅 스크립트를 직접 부른다. 그것만으로는 #12 가
-잡은 결함 — 마켓플레이스로 설치된 캐시에는 `plugins/doc-guard/` 만 들어가고
+잡은 결함 — 마켓플레이스로 설치된 캐시에는 `plugins/harness/` 만 들어가고
 `checker/` 나 `pyproject.toml` 은 따라오지 않는다 — 를 재현하지 못한다. 저장소
 안에서 돌리면 옛 코드도 `sys.path` 트릭으로 `checker` 를 찾아버려 통과해 버린다.
 
-그래서 여기서는 `plugins/doc-guard/` 를 저장소 **바깥** 임시 폴더로 복사해 설치본을
+그래서 여기서는 `plugins/harness/` 를 저장소 **바깥** 임시 폴더로 복사해 설치본을
 흉내 내고, 그 전제(엔진이 따라오지 않았다)를 스스로 확인한 뒤 그 복사본의 훅을
 서브프로세스로 부른다.
 
@@ -24,7 +24,7 @@ from pathlib import Path
 import pytest
 
 ENGINE_ROOT = Path(__file__).resolve().parents[2]
-PLUGIN_SRC = ENGINE_ROOT / "plugins" / "doc-guard"
+PLUGIN_SRC = ENGINE_ROOT / "plugins" / "harness"
 
 pytestmark = pytest.mark.skipif(
     shutil.which("uv") is None, reason="uv 가 없으면 엔진을 받아 실행할 수 없다"
@@ -58,9 +58,9 @@ def _write(path: Path, text: str) -> None:
 
 @pytest.fixture(scope="module")
 def installed_hook(tmp_path_factory) -> Path:
-    """`plugins/doc-guard/` 를 저장소 밖으로 복사해 설치본을 흉내 낸다."""
-    dest_parent = tmp_path_factory.mktemp("doc-guard-installed")
-    dest = dest_parent / "doc-guard"
+    """`plugins/harness/` 를 저장소 밖으로 복사해 설치본을 흉내 낸다."""
+    dest_parent = tmp_path_factory.mktemp("harness-installed")
+    dest = dest_parent / "harness"
     shutil.copytree(PLUGIN_SRC, dest)
 
     # 설치본의 전제를 스스로 확인한다 — 엔진(checker)도 pyproject.toml 도 따라오지

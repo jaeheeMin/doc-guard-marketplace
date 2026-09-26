@@ -15,7 +15,7 @@ import pytest
 
 from checker.cli import EXIT_CONFIG_ERROR, EXIT_PASS, EXIT_VIOLATION, main
 
-HOOK = Path(__file__).resolve().parents[2] / "plugins" / "doc-guard" / "hooks" / "pre_write_guard.py"
+HOOK = Path(__file__).resolve().parents[2] / "plugins" / "harness" / "hooks" / "pre_write_guard.py"
 
 
 # --- --auto ---------------------------------------------------------------

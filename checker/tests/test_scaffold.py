@@ -1,6 +1,6 @@
 """`/scaffold` 가 부르는 `scaffold.py` 를 검증한다.
 
-`scaffold.py` 는 `checker` 패키지 밖, `plugins/doc-guard/skills/scaffold/` 에
+`scaffold.py` 는 `checker` 패키지 밖, `plugins/harness/skills/scaffold/` 에
 산다 — 플러그인 훅과 마찬가지로 엔진과는 별도로 설치되는 자리이기 때문이다.
 그래서 평범한 `import` 대신 파일 경로로 직접 불러온다.
 
@@ -20,7 +20,7 @@ from checker.cli import EXIT_CONFIG_ERROR, EXIT_PASS, EXIT_VIOLATION, main
 SCAFFOLD_PY = (
     Path(__file__).resolve().parents[2]
     / "plugins"
-    / "doc-guard"
+    / "harness"
     / "skills"
     / "scaffold"
     / "scaffold.py"
