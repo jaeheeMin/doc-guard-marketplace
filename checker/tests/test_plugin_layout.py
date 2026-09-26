@@ -83,7 +83,7 @@ def test_hooks_json_이_유효하고_네_훅을_모두_담고_있다():
     assert pre_matchers == HOOK_MATCHERS
 
 
-@pytest.mark.parametrize("name", ["start", "deliver", "wrapup", "scaffold", "prd"])
+@pytest.mark.parametrize("name", ["start", "deliver", "wrapup", "scaffold", "prd", "spec"])
 def test_스킬이_있고_frontmatter_에_name_이_있다(name):
     skill_md = PLUGIN_ROOT / "skills" / name / "SKILL.md"
     assert skill_md.is_file(), f"{skill_md} 가 없다"
@@ -94,7 +94,7 @@ def test_스킬이_있고_frontmatter_에_name_이_있다(name):
     assert re.search(r"^name:\s*\S+", frontmatter, re.MULTILINE), "name: 이 없다"
 
 
-@pytest.mark.parametrize("name", ["start", "deliver", "wrapup", "prd"])
+@pytest.mark.parametrize("name", ["start", "deliver", "wrapup", "prd", "spec"])
 def test_스킬이_저장소_루트_기준_규칙_경로를_쓰지_않는다(name):
     """설치된 플러그인은 저장소 루트가 아니므로 `rules/xxx.md` 처럼 곧바로 쓴
     경로는 항상 깨진다. 스킬의 base directory 에서 상대 경로(`../../rules/`)로

@@ -1,0 +1,9 @@
+# Spec 은 docs/spec/ 에 개발 건 하나당 파일 하나. 파일 이름은 DEV 번호로
+# 시작한다. 필수 절은 templates/harness/spec.md 의 `##` 제목에서 그대로 읽는다.
+템플릿: ../templates/harness/spec.md
+관할: "docs/spec/**"
+
+규칙:
+  - 종류: filename
+    패턴: '^DEV-\d{3,}-.+\.md$'
+  - 종류: required_sections
