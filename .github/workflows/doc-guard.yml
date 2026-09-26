@@ -7,7 +7,7 @@
 #
 #   jobs:
 #     doc-guard:
-#       uses: jaeheeMin/doc-guard-marketplace/.github/workflows/doc-guard.yml@main
+#       uses: jaeheeMin/blueward-harness/.github/workflows/doc-guard.yml@main
 #       permissions:
 #         contents: read
 #         pull-requests: write
@@ -18,7 +18,7 @@ on:
   workflow_call:
     inputs:
       engine-ref:
-        description: 검사 엔진을 가져올 doc-guard-marketplace 의 ref
+        description: 검사 엔진을 가져올 blueward-harness 의 ref
         type: string
         default: main
       comment:
@@ -39,7 +39,7 @@ jobs:
       - name: 검사 엔진 가져오기
         uses: actions/checkout@v4
         with:
-          repository: jaeheeMin/doc-guard-marketplace
+          repository: jaeheeMin/blueward-harness
           ref: ${{ inputs.engine-ref }}
           path: .doc-guard-engine
 

@@ -1,4 +1,4 @@
-# doc-guard-marketplace
+# blueward-harness
 
 문서가 정해진 템플릿을 따르는지 검사하고, 맞지 않으면 거절하면서 쓸 템플릿을
 안내하는 체계(**doc-guard**)를 만드는 저장소다.
@@ -54,7 +54,7 @@ uv run doc-guard --rules <회사>/rules/ <회사>/docs/파일.md
 ```
 
 ```
-/plugin marketplace add jaeheeMin/doc-guard-marketplace
+/plugin marketplace add jaeheeMin/blueward-harness
 /plugin install doc-guard
 ```
 
