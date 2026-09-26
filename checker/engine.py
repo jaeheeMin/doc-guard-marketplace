@@ -15,6 +15,17 @@ from checker.model import ConfigError, DocType, Violation
 OUT_OF_SCOPE = "out_of_scope"
 PASS = "pass"
 VIOLATION = "violation"
+SKIPPED = "skipped"
+
+# 관할 안에 있어도 문서로 보지 않는 자리표시·시스템 파일. 회사가 만드는 것이 아니라
+# 도구(git, 탐색기, macOS)가 자동으로 흘려 두는 것들이라 목록을 짧게 못 박는다.
+# 늘어나지 않는다는 확신이 있는 이 목록만 예외로 두고, 그 밖의 읽지 못하는 형식은
+# (`.hwp`, `.pdf` 등) 여전히 검사 불능이다 — 검사가 필요한 진짜 산출물을 이 예외로
+# 슬쩍 통과시키면 안 되기 때문이다("검사 불능을 통과로 뭉개지 않는다" 원칙).
+SKIPPED_BASENAMES = frozenset({
+    ".gitkeep", ".keep", ".gitignore", ".ds_store", "thumbs.db", "desktop.ini",
+})
+SKIPPED_REASON = "자리표시·시스템 파일이라 문서로 보지 않는다"
 
 
 def _matches(relative: str, pattern: str) -> bool:
@@ -61,6 +72,18 @@ def check_file(path: Path, relative: str, types: list[DocType]) -> dict:
             "violations": [],
         }
 
+    if Path(relative).name.lower() in SKIPPED_BASENAMES:
+        # 관할 판정 뒤에 본다. 관할 밖의 `.gitkeep` 은 여전히 out_of_scope 다 — 대조할
+        # 기준 자체가 없기 때문이고, 그 의미를 이 예외로 바꾸지 않는다.
+        return {
+            "file": relative,
+            "type": doc_type.name,
+            "template": doc_type.template or None,
+            "status": SKIPPED,
+            "reason": SKIPPED_REASON,
+            "violations": [],
+        }
+
     violations: list[Violation] = []
     for r in doc_type.rules:
         fn = rule_registry.get(r.kind)
@@ -80,15 +103,26 @@ def check_file(path: Path, relative: str, types: list[DocType]) -> dict:
     }
 
 
+def summarize(files: list[dict]) -> dict:
+    """상태 목록에서 요약을 낸다.
+
+    `check()` 와, 회사별로 나눠 돌린 뒤 합치는 `cli._check_auto` 가 같은 계산을 쓰도록
+    한 곳에 둔다. `skipped` 는 관할 안에 있었지만 자리표시·시스템 파일이라 문서로 보지
+    않은 것이다 — 검사한 것(`scoped`)으로도, 관할 밖으로도 세면 이중으로 뭉개진다.
+    """
+
+    def count(status: str) -> int:
+        return sum(1 for f in files if f["status"] == status)
+
+    return {
+        "scoped": count(PASS) + count(VIOLATION),
+        "passed": count(PASS),
+        "violations": count(VIOLATION),
+        "skipped": count(SKIPPED),
+        "out_of_scope": count(OUT_OF_SCOPE),
+    }
+
+
 def check(paths: list[tuple[Path, str]], types: list[DocType]) -> dict:
     files = [check_file(p, rel, types) for p, rel in paths]
-    counted = [f for f in files if f["status"] != OUT_OF_SCOPE]
-    return {
-        "summary": {
-            "scoped": len(counted),
-            "passed": sum(1 for f in counted if f["status"] == PASS),
-            "violations": sum(1 for f in counted if f["status"] == VIOLATION),
-            "out_of_scope": len(files) - len(counted),
-        },
-        "files": files,
-    }
+    return {"summary": summarize(files), "files": files}

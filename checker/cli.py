@@ -18,7 +18,7 @@ import json
 import sys
 from pathlib import Path
 
-from checker.engine import OUT_OF_SCOPE, check
+from checker.engine import OUT_OF_SCOPE, check, summarize
 from checker.loader import load
 from checker.locate import group_by_company
 from checker.model import ConfigError
@@ -167,16 +167,7 @@ def _check_auto(paths: list[Path]) -> dict:
              "status": OUT_OF_SCOPE, "violations": []}
         )
 
-    counted = [f for f in files if f["status"] != OUT_OF_SCOPE]
-    return {
-        "summary": {
-            "scoped": len(counted),
-            "passed": sum(1 for f in counted if f["status"] == "pass"),
-            "violations": sum(1 for f in counted if f["status"] == "violation"),
-            "out_of_scope": len(files) - len(counted),
-        },
-        "files": files,
-    }
+    return {"summary": summarize(files), "files": files}
 
 
 if __name__ == "__main__":

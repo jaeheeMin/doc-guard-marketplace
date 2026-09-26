@@ -51,7 +51,8 @@ def read(path: Path) -> dict:
     fn = _READERS.get(ext)
     if fn is None:
         raise ConfigError(
-            f"{path.name}: '{ext}' 형식을 읽을 리더가 없다. "
+            f"{path.name}: '{ext}' 형식을 읽을 리더가 없어 검사할 수 없다. "
+            "관할을 좁혀 이 파일을 빼거나 리더를 추가해야 한다. "
             f"지원하는 형식: {', '.join(sorted(_READERS)) or '없음'}"
         )
     return fn(path)
