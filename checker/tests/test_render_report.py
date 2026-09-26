@@ -162,3 +162,91 @@ def test_리포트_파일이_없으면_main이_검사불능으로_렌더링한�
     out = capsys.readouterr().out
     assert "⚠️ 검사 불능" in out
     assert str(missing) in out
+
+
+# --- 공통 개발 규칙(CR-001, CR-002, #54) 절 --------------------------------
+#
+# `check_changed.py` 가 코드 파일을 검사하면 리포트에 `code_rules` 키를 더한다.
+# doc-guard 절과 공통 개발 규칙 절은 서로 독립이어야 한다 — 한쪽이 위반이어도
+# 다른 쪽이 통과라면 그 사실이 그대로 드러나야 한다.
+
+
+def _code_section(exit_code: int, report: dict) -> dict:
+    return {"exit": exit_code, "report": report}
+
+
+def test_코드가_없으면_공통_개발_규칙_절이_없다():
+    text = render(_report(1, 0), 0)
+    assert "공통 개발 규칙" not in text
+
+
+def test_문서는_통과하고_코드만_위반해도_각자_제목으로_보인다():
+    report = _report(1, 0, [
+        {"file": "docs/제안서/x.md", "type": "제안서", "template": "t", "status": "pass", "violations": []},
+    ])
+    report["code_rules"] = _code_section(1, {
+        "summary": {"checked": 1, "violations": 1, "allowed": 0, "skipped": 0},
+        "files": [
+            {
+                "file": "src/z_report.abap", "language": "abap", "status": "violation",
+                "findings": [
+                    {"rule": "CR-001", "line": 3, "col": 6, "message": "이름 '주문번호' 에 한글 등 비ASCII 문자가 있다.",
+                     "fix": "영문 이름으로 바꾼다.", "allowed": False},
+                ],
+            }
+        ],
+    })
+
+    # 바깥 종료코드는 check_changed.py 가 둘을 합친 값(코드가 위반이므로 1)이다. doc-guard
+    # 자신은 통과였다는 사실이 여기서 사라지면 안 된다.
+    text = render(report, 1)
+    assert "모두 템플릿을 따릅니다" in text
+    assert "❌ 템플릿 위반" not in text
+    assert "### ❌ 공통 개발 규칙 위반" in text
+    assert "z_report.abap" in text
+    assert "CR-001" in text
+    assert "주문번호" in text
+    assert "영문 이름으로 바꾼다" in text
+
+
+def test_코드도_통과하면_코드_절도_통과로_보인다():
+    report = _report(1, 0)
+    report["code_rules"] = _code_section(0, {
+        "summary": {"checked": 2, "violations": 0, "allowed": 1, "skipped": 0},
+        "files": [],
+    })
+    text = render(report, 0)
+    assert "### ❌ 공통 개발 규칙 위반" not in text
+    assert "모두 공통 개발 규칙" in text
+    assert "예외로 인정된 발견 1건" in text
+
+
+def test_예외로_인정된_발견은_따로_보이지_않는다():
+    report = _report(1, 0)
+    report["code_rules"] = _code_section(1, {
+        "summary": {"checked": 1, "violations": 1, "allowed": 1, "skipped": 0},
+        "files": [
+            {
+                "file": "src/z.abap", "language": "abap", "status": "violation",
+                "findings": [
+                    {"rule": "CR-002", "line": 5, "col": 3, "message": "SELECT 문이 반복문 안에 있다.",
+                     "fix": "모아 조회한다.", "allowed": False},
+                    {"rule": "CR-002", "line": 9, "col": 3, "message": "SELECT 문이 반복문 안에 있다.",
+                     "fix": "모아 조회한다.", "allowed": True},
+                ],
+            }
+        ],
+    })
+    text = render(report, 1)
+    assert text.count("5:3") == 1
+    assert "9:3" not in text
+
+
+def test_코드_검사_불능은_따로_알린다():
+    report = _report(1, 0)
+    report["code_rules"] = _code_section(2, {"message": "엔진을 받지 못했습니다"})
+    text = render(report, 1)
+    assert "모두 템플릿을 따릅니다" in text
+    assert "### ⚠️ 검사 불능" in text
+    assert "엔진을 받지 못했습니다" in text
+    assert "코드의 문제가 아닙니다" in text

@@ -20,6 +20,13 @@ out_of_scope 로 빠지기 때문이다. 이 워크플로를 부르는 저장소
 것이므로, 회사 폴더가 아예 없는 것은 관할 밖이 아니라 설정을 빠뜨린 것이다(#24). 바뀐
 파일이 있는데 회사 폴더가 하나도 없으면 검사 불능으로 끝낸다. 바뀐 파일이 없을 때는 이
 검사를 하지 않는다 — 그것은 정당한 통과이지 설정 오류가 아니다.
+
+**공통 개발 규칙(CR-001, CR-002, #54)은 문서 검사와 소관이 갈린다.** `checker.code_rules`
+가 아는 확장자(`.abap`, `.js`/`.ts`, `.cds` 등)는 doc-guard 의 `--auto` 로 보내지 않고
+따로 검사한다 — 회사 폴더를 요구하지 않으므로, 바뀐 파일이 전부 코드뿐이면 회사 폴더가
+하나도 없어도(#24 가드) 검사 불능으로 끝내지 않는다. 그 가드는 문서에만 해당한다. 두
+검사의 리포트는 하나의 JSON 에 함께 담되(`code_rules` 키), 종료코드는 둘 중 더 나쁜
+쪽을 따른다 — 검사 불능(2) > 위반(1) > 통과(0).
 """
 from __future__ import annotations
 
@@ -27,12 +34,30 @@ import json
 import sys
 from pathlib import Path
 
-from checker.cli import EXIT_CONFIG_ERROR, EXIT_PASS, main
+from checker.cli import EXIT_CONFIG_ERROR, EXIT_PASS, EXIT_VIOLATION, _check_auto, main
+from checker.code_rules import EXIT_CANNOT_CHECK as CODE_EXIT_CANNOT_CHECK
+from checker.code_rules import build_report as _build_code_report
+from checker.code_rules import exit_code_for as _code_exit_code
+from checker.code_rules import language_for_suffix
+from checker.model import ConfigError
 
 EMPTY_REPORT = (
     '{"summary": {"scoped": 0, "passed": 0, "violations": 0, "skipped": 0,'
     ' "out_of_scope": 0}, "files": []}'
 )
+
+
+def split_by_language(found: list[str]) -> tuple[list[str], list[str]]:
+    """doc-guard 가 볼 파일과 `checker.code_rules` 가 볼 파일을 가른다.
+
+    `checker.code_rules` 가 아는 언어(확장자)면 코드 쪽으로 보낸다. doc-guard 는 그런
+    확장자를 관할하는 규칙이 없으므로, 보내 봤자 매번 out_of_scope 로 떨어져 리포트만
+    어지럽힌다.
+    """
+    doc_files, code_files = [], []
+    for name in found:
+        (code_files if language_for_suffix(Path(name)) else doc_files).append(name)
+    return doc_files, code_files
 
 
 def split_listing(text: str) -> tuple[list[str], list[str]]:
@@ -119,17 +144,47 @@ def main_entry(argv: list[str] | None = None) -> int:
         print(EMPTY_REPORT)
         return EXIT_PASS
 
-    if not has_company_folder(Path.cwd()):
+    doc_files, code_files = split_by_language(found)
+
+    if doc_files and not has_company_folder(Path.cwd()):
         # 바뀐 문서가 있는데 대조할 회사 폴더가 하나도 없다. 지금까지는 모든 문서가
         # out_of_scope 로 빠져 조용히 통과했다(#24) — 회사 폴더를 만드는 것을 잊은
-        # Project Repository 가 정확히 이 모양이 된다.
+        # Project Repository 가 정확히 이 모양이 된다. 코드만 바뀐 경우는 이 가드를
+        # 타지 않는다 — CR-001/CR-002 는 회사 폴더가 있든 없든 항상 적용된다.
         return config_error(
             "이 저장소에서 `templates/` 와 `rules/` 를 함께 가진 폴더를 찾지 못해 "
             "검사할 수 없습니다. doc-guard 를 쓰는 Project Repository 라면 "
             "`/scaffold` 로 구조를 만드십시오."
         )
 
-    return main(["--auto", *found])
+    if not code_files:
+        # 코드 파일이 없다. doc-guard 만 있던 예전 그대로 동작한다.
+        return main(["--auto", *doc_files])
+
+    try:
+        doc_report = (
+            _check_auto([Path(f) for f in doc_files])
+            if doc_files
+            else {
+                "summary": {"scoped": 0, "passed": 0, "violations": 0, "skipped": 0, "out_of_scope": 0},
+                "files": [],
+            }
+        )
+    except ConfigError as exc:
+        return config_error(str(exc))
+
+    code_report = _build_code_report([Path(f) for f in code_files])
+    code_exit = _code_exit_code(code_report)
+
+    combined = dict(doc_report)
+    combined["code_rules"] = {"report": code_report, "exit": code_exit}
+    print(json.dumps(combined, ensure_ascii=False))
+
+    if code_exit == CODE_EXIT_CANNOT_CHECK:
+        return EXIT_CONFIG_ERROR
+    if doc_report["summary"]["violations"] or code_exit == EXIT_VIOLATION:
+        return EXIT_VIOLATION
+    return EXIT_PASS
 
 
 if __name__ == "__main__":

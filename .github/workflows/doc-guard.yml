@@ -123,20 +123,22 @@ jobs:
               echo "통과"
               ;;
             1)
-              echo "::error title=doc-guard 위반::문서가 템플릿을 따르지 않습니다. PR 코멘트를 보십시오."
+              # 문서(doc-guard)나 코드(공통 개발 규칙, #54) 어느 쪽이 위반인지는 이
+              # 종료코드만으로 갈리지 않는다 — PR 코멘트가 절을 나눠 보여준다.
+              echo "::error title=harness 위반::문서 또는 코드가 규칙을 따르지 않습니다. PR 코멘트를 보십시오."
               {
                 echo ""
-                echo "### doc-guard 판정: ❌ 위반"
-                echo "문서를 고쳐야 합니다."
+                echo "### harness 판정: ❌ 위반"
+                echo "문서 또는 코드를 고쳐야 합니다. 어느 쪽인지는 위 PR 코멘트를 보십시오."
               } >> "$GITHUB_STEP_SUMMARY"
               exit 1
               ;;
             2)
-              echo "::error title=doc-guard 검사 불능::규칙 파일에 문제가 있어 검사할 수 없습니다. 규칙 담당자에게 알리십시오."
+              echo "::error title=harness 검사 불능::규칙 파일이나 검사 엔진에 문제가 있어 검사할 수 없습니다. 담당자에게 알리십시오."
               {
                 echo ""
-                echo "### doc-guard 판정: ⚠️ 검사 불능"
-                echo "규칙·설정을 고쳐야 합니다. 문서의 문제가 아닙니다."
+                echo "### harness 판정: ⚠️ 검사 불능"
+                echo "규칙·설정을 고쳐야 합니다. 문서나 코드의 문제가 아닙니다."
               } >> "$GITHUB_STEP_SUMMARY"
               exit 1
               ;;
