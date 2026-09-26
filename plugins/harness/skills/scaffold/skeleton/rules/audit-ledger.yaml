@@ -1,0 +1,9 @@
+# 진행 원장은 프로그램 하나에 파일 하나. 파일 이름은 프로그램 이름을 그대로
+# 쓰므로 형식을 고정하지 않는다.
+템플릿: ../templates/harness/audit-ledger.md
+관할: "audit/ledger/**"
+
+규칙:
+  - 종류: filename
+    패턴: '^.+\.md$'
+  - 종류: required_sections

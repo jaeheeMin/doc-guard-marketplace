@@ -1,0 +1,9 @@
+# 변경 기록 하나에 파일 하나. 여러 사람이 동시에 기록해도 파일이 겹치지
+# 않아 PR 이 충돌하지 않는다.
+템플릿: ../templates/harness/audit-change.md
+관할: "audit/changes/**"
+
+규칙:
+  - 종류: filename
+    패턴: '^\d{8}-.+\.md$'
+  - 종류: required_sections
