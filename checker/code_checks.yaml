@@ -1,0 +1,26 @@
+# 공통 개발 규칙(CR-001, CR-002)의 기계 검사 설정. 데이터로 둔다(CLAUDE.md 원칙 2).
+#
+# 여기 있는 것은 "어느 언어에서 어느 규칙을 적용하는가" 뿐이다. 언어마다 주석과
+# 문자열을 어떻게 알아보는지, 반복문을 어떻게 알아보는지는 코드(checker/code_rules.py)다.
+# 언어나 규칙이 늘 때 이 파일만 고치면 되게 하는 것이 목표다.
+
+languages:
+  abap:
+    # ABAP 리포트·클래스·인클루드. 확장자는 프로젝트마다 다를 수 있지만 우선 이것부터.
+    suffixes: [".abap"]
+  js:
+    # CAP(Cloud Application Programming) 서비스 구현 등 JS/TS.
+    suffixes: [".js", ".ts", ".mjs", ".cjs"]
+  cds:
+    # CDS(Core Data Services) 정의.
+    suffixes: [".cds"]
+
+rules:
+  CR-001:
+    title: "이름에 한글을 쓰지 않는다"
+    languages: [abap, js, cds]
+    fix: "영문 이름으로 바꾼다. 주석과 문자열은 그대로 둬도 된다."
+  CR-002:
+    title: "반복문 안에서 DB 를 조회하지 않는다"
+    languages: [abap, js]
+    fix: "반복문 밖에서 한 번에 모아 조회한다 — FOR ALL ENTRIES / JOIN / IN, ABAP Cloud 는 CDS view."

@@ -26,7 +26,9 @@ DATA 주문번호 TYPE vbeln.
 DATA lv_order_no TYPE vbeln. " 주문번호
 ```
 
-**기계 검사**: 코드 저장 시 검사 예정(#54).
+**기계 검사**: 코드 저장 시(훅)와 PR 검사(Actions)에서 막는다. ABAP, JS/TS, CDS 를
+본다. 정말 예외라면 같은 줄이나 바로 위 줄에 `harness:allow CR-001 <이유>` 를
+주석으로 남긴다 — 이유 없이는 예외로 인정하지 않는다.
 
 ## CR-002 반복문 안에서 DB 를 조회하지 않는다
 
@@ -53,7 +55,10 @@ SELECT * FROM vbak INTO TABLE lt_vbak
 **좋은 예 (ABAP Cloud, CDS)**: `define view entity Z_I_Order as select from
 vbak inner join vbap on vbak.vbeln = vbap.vbeln`
 
-**기계 검사**: 코드 저장 시 검사 예정(#54).
+**기계 검사**: 코드 저장 시(훅)와 PR 검사(Actions)에서 막는다. ABAP 은 LOOP/DO/WHILE
+과 SELECT...ENDSELECT 의 중첩을 세고, JS/TS(CAP) 는 `for`/`while`/`.forEach`/`.map`
+안의 `SELECT.from` 류 호출을 잡는다(휴리스틱). 정말 예외라면 `harness:allow CR-002
+<이유>` 주석을 남긴다 — 이유 없이는 예외로 인정하지 않는다.
 
 ## CR-003 SELECT * 대신 필요한 필드만 조회한다
 
